@@ -1,0 +1,21 @@
+# Environment files (contain credentials/personal info)
+.env
+.env.local
+.env.*.local
+
+# OAuth tokens and credentials
+credentials.json
+token.json
+*.pem
+*.key
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Editor artifacts
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
