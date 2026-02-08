@@ -29,36 +29,38 @@ The user's Gmail account is available via the `GMAIL_ACCOUNT` environment variab
 
 When asked to summarize unread emails, follow these steps:
 
-### Step 1 — List unread messages
+### Step 1 — Search unread messages
 
 ```bash
-gog gmail messages list --query "is:unread" --account "$GMAIL_ACCOUNT" --format json --max-results 50
+gog gmail messages search "is:unread" --account "$GMAIL_ACCOUNT" --max 50 --plain
 ```
 
-### Step 2 — Fetch each message
+This returns a TSV table with columns: ID, DATE, FROM, SUBJECT, LABELS, THREAD.
 
-For each message ID returned, fetch the full message:
+For JSON output (better for programmatic use):
 
 ```bash
-gog gmail messages get <message-id> --account "$GMAIL_ACCOUNT" --format json
+gog gmail messages search "is:unread" --account "$GMAIL_ACCOUNT" --max 50 --json
 ```
 
-Extract from each message:
-- **From** (sender name and email)
-- **Subject**
-- **Date**
-- **Snippet** (first ~100 chars of body)
+### Step 2 — Fetch a specific message (if more detail is needed)
+
+```bash
+gog gmail get <message-id> --account "$GMAIL_ACCOUNT" --format full --json
+```
+
+Use `--format metadata --headers "From,Subject,Date"` for just headers, or `--format full` for the complete message.
 
 ### Step 3 — Format the summary
 
 Present the summary in this format:
 
 ```
-📧 Unread Inbox Summary — <count> messages
+Unread Inbox Summary — <count> messages
 
 From: <sender>
 Subject: <subject>
-Preview: <snippet>
+Date: <date>
 ---
 (repeat for each message)
 ```
@@ -67,7 +69,7 @@ Group messages by sender if there are multiple from the same sender. If there ar
 
 If there are no unread messages, respond with:
 ```
-📧 Inbox Zero — no unread messages!
+Inbox Zero — no unread messages!
 ```
 
 ## Capability 2: Clean Spam & Trash
@@ -75,13 +77,13 @@ If there are no unread messages, respond with:
 When asked to clean spam and trash (or as part of a scheduled daily run), execute the bundled cleanup script:
 
 ```bash
-bash "$(dirname "$0")/bins/gmail-cleanup.sh" "$GMAIL_ACCOUNT"
+bash skills/gmail-agent/bins/gmail-cleanup.sh "$GMAIL_ACCOUNT"
 ```
 
 The script will output the number of messages deleted from each folder. Report these counts to the user:
 
 ```
-🧹 Gmail Cleanup Complete
+Gmail Cleanup Complete
 - Spam: <count> messages purged
 - Trash: <count> messages purged
 ```

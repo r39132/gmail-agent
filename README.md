@@ -103,7 +103,7 @@ gog auth login
 This opens a browser for OAuth consent. After authorizing, verify it works:
 
 ```bash
-gog gmail messages list --query "is:unread" --account YOUR_EMAIL --max-results 5
+gog gmail messages search "is:unread" --account YOUR_EMAIL --max 5
 ```
 
 ### 5. Configure Environment Variables
@@ -134,7 +134,7 @@ The core scripts work directly from the command line:
 
 ```bash
 # Summarize unread emails (using gog directly)
-gog gmail messages list --query "is:unread" --account "$GMAIL_ACCOUNT" --format json --max-results 50
+gog gmail messages search "is:unread" --account "$GMAIL_ACCOUNT" --max 50 --plain
 
 # Clean spam and trash
 source .env
@@ -215,9 +215,9 @@ def summarize_inbox() -> str:
     """List unread Gmail messages."""
     result = subprocess.run(
         ["gog", "gmail", "messages", "list",
-         "--query", "is:unread",
+         "is:unread",
          "--account", os.environ["GMAIL_ACCOUNT"],
-         "--format", "json", "--max-results", "50"],
+         "--max", "50", "--json"],
         capture_output=True, text=True
     )
     return result.stdout
