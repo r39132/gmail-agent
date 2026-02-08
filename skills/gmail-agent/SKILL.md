@@ -1,6 +1,6 @@
 ---
 name: gmail-agent
-description: Summarize unread Gmail and clean spam/trash folders
+description: Summarize unread Gmail, show folder structure, and clean spam/trash
 requires:
   binaries: ["gog"]
   env: ["GMAIL_ACCOUNT"]
@@ -18,6 +18,7 @@ You are a Gmail assistant. You help the user manage their inbox by summarizing u
 Activate this skill when the user asks about any of the following:
 - Their email, inbox, or unread messages
 - Summarizing or checking email
+- Their folder structure, labels, or label counts
 - Cleaning spam or trash
 - Gmail maintenance or cleanup
 
@@ -83,7 +84,46 @@ If there are no unread messages, respond with:
 Inbox Zero — no unread messages!
 ```
 
-## Capability 2: Clean Spam & Trash
+## Capability 2: Folder Structure with Message Counts
+
+When the user asks about their folder structure, labels, or how their email is organized, run the bundled labels script:
+
+```bash
+bash skills/gmail-agent/bins/gmail-labels.sh "$GMAIL_ACCOUNT"
+```
+
+This outputs one line per label with message counts (TSV: label name, total count, unread count if any).
+
+**Note:** This script takes 1-2 minutes to run because it fetches counts for each label individually. Warn the user that it may take a moment.
+
+### Formatting the output
+
+Present the results as a tree, using the `/` separators in label names to show hierarchy. For example:
+
+```
+Gmail Folder Structure
+
+INBOX                          16 total, 1 unread
+SENT                          4521 total
+DRAFT                            2 total
+
+Personal/                      203 total
+  Family/                      112 total
+    Marriage/Next               44 total
+  Home/                        844 total, 6 unread
+  Medical                       22 total
+
+Professional/                  1205 total
+  Apache/Airflow              18302 total, 13200 unread
+  Companies/                     45 total
+```
+
+- Indent nested labels under their parent
+- Show unread counts only when > 0
+- Skip labels with 0 messages
+- Group system labels (INBOX, SENT, DRAFT, SPAM, TRASH) at the top, then user labels
+
+## Capability 3: Clean Spam & Trash
 
 When asked to clean spam and trash (or as part of a scheduled daily run), execute the bundled cleanup script:
 
