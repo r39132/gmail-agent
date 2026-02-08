@@ -20,7 +20,6 @@ openclaw cron add \
     --tz "$CRON_TIMEZONE" \
     --session isolated \
     --message "Run the gmail-agent skill: 1) Summarize all unread emails in my inbox. 2) Clean out my spam and trash folders. Report what you did." \
-    --model opus \
     --deliver
 
 echo ""
