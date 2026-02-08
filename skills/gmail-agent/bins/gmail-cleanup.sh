@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# gmail-cleanup.sh — Purge all messages from Gmail Spam and Trash folders
+# gmail-cleanup.sh — Clean out Gmail Spam and Trash folders
+# Uses batch modify to remove labels (requires only gmail.modify scope)
 #
 # Usage: gmail-cleanup.sh [account-email]
 #   account-email: Gmail address (defaults to $GMAIL_ACCOUNT env var)
@@ -17,14 +18,19 @@ fi
 
 cleanup_label() {
     local label="$1"
-    local ids
+    local label_upper
+    label_upper=$(echo "$label" | tr '[:lower:]' '[:upper:]')
 
-    # Search for all message IDs in the given label
+    # Search for all message IDs in the given label (plain TSV, first column is ID)
+    # Skip the header line, extract just the ID column
+    local ids
     ids=$(gog gmail messages search "in:${label}" \
         --account "$ACCOUNT" \
         --max 500 \
-        --json 2>/dev/null \
-        | jq -r '.[].id // empty' 2>/dev/null || true)
+        --plain 2>&1 \
+        | tail -n +2 \
+        | grep -vE '^(#|No results)' \
+        | cut -f1 || true)
 
     if [[ -z "$ids" ]]; then
         echo "0"
@@ -39,20 +45,22 @@ cleanup_label() {
         batch_ids+=("$id")
         ((count++))
 
-        # Batch delete in groups of 100 (Gmail API limit per batch)
+        # Batch modify in groups of 100 (Gmail API limit per batch)
         if [[ ${#batch_ids[@]} -ge 100 ]]; then
-            gog gmail batch delete "${batch_ids[@]}" \
+            gog gmail batch modify "${batch_ids[@]}" \
                 --account "$ACCOUNT" \
-                --force 2>/dev/null || true
+                --remove="$label_upper" \
+                --force >&2
             batch_ids=()
         fi
     done <<< "$ids"
 
-    # Delete remaining messages
+    # Process remaining messages
     if [[ ${#batch_ids[@]} -gt 0 ]]; then
-        gog gmail batch delete "${batch_ids[@]}" \
+        gog gmail batch modify "${batch_ids[@]}" \
             --account "$ACCOUNT" \
-            --force 2>/dev/null || true
+            --remove="$label_upper" \
+            --force >&2
     fi
 
     echo "$count"
@@ -62,10 +70,10 @@ echo "Cleaning Gmail for $ACCOUNT..."
 echo ""
 
 spam_count=$(cleanup_label "spam")
-echo "Spam: ${spam_count} messages purged"
+echo "Spam: ${spam_count} messages cleaned"
 
 trash_count=$(cleanup_label "trash")
-echo "Trash: ${trash_count} messages purged"
+echo "Trash: ${trash_count} messages cleaned"
 
 echo ""
 echo "Done."
