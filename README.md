@@ -156,8 +156,7 @@ This symlinks the skill into `~/.openclaw/workspace/skills/gmail-agent` so OpenC
 #### Register the daily cron job
 
 ```bash
-source .env
-bash setup/register-cron-jobs.sh "$WHATSAPP_TARGET"
+bash setup/register-cron-jobs.sh
 ```
 
 #### Chat with it
@@ -280,7 +279,6 @@ gmail-agent/
 | Variable | Required | Description |
 |---|---|---|
 | `GMAIL_ACCOUNT` | Yes | Gmail address to manage |
-| `WHATSAPP_TARGET` | For cron | WhatsApp delivery target (phone number) |
 | `CRON_TIMEZONE` | No | Timezone for scheduled runs (default: `America/Los_Angeles`) |
 | `CRON_SCHEDULE` | No | Cron expression (default: `0 12 * * *` = noon daily) |
 
