@@ -27,21 +27,24 @@ The user's Gmail account is available via the `GMAIL_ACCOUNT` environment variab
 
 ## Capability 1: Summarize Unread Emails
 
-When asked to summarize unread emails, follow these steps:
+There are two modes. Choose based on what the user asks:
+
+- **Inbox only (default):** When the user says "summarize my emails", "check my inbox", "what's in my inbox", or any request that doesn't explicitly say "all" — search only the inbox.
+- **All unread:** When the user explicitly says "all my unread emails", "all unread", or "everything unread" — search across all labels, excluding spam and trash.
 
 ### Step 1 — Search unread messages
 
+**Inbox only (default):**
 ```bash
-gog gmail messages search "is:unread" --account "$GMAIL_ACCOUNT" --max 50 --plain
+gog gmail messages search "is:unread in:inbox" --account "$GMAIL_ACCOUNT" --max 50 --plain
 ```
 
-This returns a TSV table with columns: ID, DATE, FROM, SUBJECT, LABELS, THREAD.
-
-For JSON output (better for programmatic use):
-
+**All unread (when user explicitly asks for all):**
 ```bash
-gog gmail messages search "is:unread" --account "$GMAIL_ACCOUNT" --max 50 --json
+gog gmail messages search "is:unread -in:spam -in:trash" --account "$GMAIL_ACCOUNT" --max 50 --plain
 ```
+
+Both return a TSV table with columns: ID, THREAD, DATE, FROM, SUBJECT, LABELS.
 
 ### Step 2 — Fetch a specific message (if more detail is needed)
 
@@ -56,7 +59,7 @@ Use `--format metadata --headers "From,Subject,Date"` for just headers, or `--fo
 Present the summary in this format:
 
 ```
-Unread Inbox Summary — <count> messages
+Unread Inbox Summary — <count> messages          (or "Unread Summary (All)" for all-unread mode)
 
 From: <sender>
 Subject: <subject>
@@ -91,6 +94,6 @@ Gmail Cleanup Complete
 ## Scheduled Daily Run
 
 When triggered by the daily cron job, perform both capabilities in order:
-1. Summarize all unread emails
+1. Summarize all unread emails (use the "all unread" mode, not inbox-only)
 2. Clean spam and trash folders
 3. Combine both reports into a single message for delivery
