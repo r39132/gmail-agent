@@ -27,19 +27,27 @@ The user's Gmail account is available via the `GMAIL_ACCOUNT` environment variab
 
 ## Capability 1: Summarize Unread Emails
 
-There are two modes. Choose based on what the user asks:
+**CRITICAL — There are two modes. You MUST choose the correct one:**
 
-- **Inbox only (default):** When the user says "summarize my emails", "check my inbox", "what's in my inbox", or any request that doesn't explicitly say "all" — search only the inbox.
-- **All unread:** When the user explicitly says "all my unread emails", "all unread", or "everything unread" — search across all labels, excluding spam and trash.
+1. **Inbox only (THIS IS THE DEFAULT — use this unless the user says "all"):**
+   Use this for: "summarize my emails", "check my inbox", "check my email", "what's new", "unread emails", or ANY request that does NOT contain the word "all".
+   Query: `is:unread in:inbox`
+
+2. **All unread (ONLY when user explicitly says "all"):**
+   Use this ONLY for: "all my unread emails", "all unread", "summarize all", "everything unread".
+   The word "all" must appear in the user's request.
+   Query: `is:unread -in:spam -in:trash`
+
+**When in doubt, use inbox only.**
 
 ### Step 1 — Search unread messages
 
-**Inbox only (default):**
+**Inbox only (default — ALWAYS use this unless user says "all"):**
 ```bash
 gog gmail messages search "is:unread in:inbox" --account "$GMAIL_ACCOUNT" --max 50 --plain
 ```
 
-**All unread (when user explicitly asks for all):**
+**All unread (ONLY when user explicitly includes the word "all"):**
 ```bash
 gog gmail messages search "is:unread -in:spam -in:trash" --account "$GMAIL_ACCOUNT" --max 50 --plain
 ```
