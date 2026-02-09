@@ -1,6 +1,6 @@
 ---
 name: gmail-agent
-description: Summarize unread Gmail, show folder structure, and clean spam/trash
+description: Summarize unread Gmail, show folder structure, audit/clean labels, and purge spam/trash
 requires:
   binaries: ["gog"]
   env: ["GMAIL_ACCOUNT"]
@@ -19,6 +19,7 @@ Activate this skill when the user asks about any of the following:
 - Their email, inbox, or unread messages
 - Summarizing or checking email
 - Their folder structure, labels, or label counts
+- Auditing, inspecting, or cleaning up a specific label or label hierarchy
 - Cleaning spam or trash
 - Gmail maintenance or cleanup
 
@@ -137,6 +138,65 @@ The script will output the number of messages deleted from each folder. Report t
 Gmail Cleanup Complete
 - Spam: <count> messages purged
 - Trash: <count> messages purged
+```
+
+## Capability 4: Label Audit & Cleanup
+
+When the user asks to audit, inspect, or clean up a specific label (e.g., "clean up my Professional/Companies label", "how many emails are under Personal/Taxes?", "audit label X").
+
+### Step 1 — Run the audit (read-only)
+
+```bash
+bash skills/gmail-agent/bins/gmail-label-audit.sh "<label-name>" "$GMAIL_ACCOUNT"
+```
+
+This finds the target label and all sublabels beneath it, then for each message checks whether it has other user labels. It reports:
+
+- **SINGLE** — the message only has this label (no other user labels). Safe to clean up.
+- **MULTI** — the message has other user labels too. Will be left alone.
+
+System labels (INBOX, SENT, UNREAD, IMPORTANT, CATEGORY_*, STARRED, etc.) are ignored when determining single vs multi — only user-created labels count.
+
+### Step 2 — Present the report
+
+Show the output as a table:
+
+```
+Label Audit: Professional/Companies
+
+LABEL                                               TOTAL   SINGLE    MULTI
+Professional/Companies                                 45       32       13
+Professional/Companies/Walmart                         20       18        2
+Professional/Companies/Walmart/Travel                   8        8        0
+Professional/Companies/Google                          17        6       11
+
+TOTAL (deduplicated)                                   45       32       13
+
+SINGLE = only this label hierarchy (safe to clean up)
+MULTI  = has other user labels (will be left alone)
+```
+
+### Step 3 — Ask the user
+
+After showing the report, ask:
+
+> "Found **32 single-label messages** that can be cleaned up (labels removed). **13 multi-label messages** will be left untouched. Would you like to proceed with cleanup?"
+
+**Do NOT proceed without explicit confirmation.**
+
+### Step 4 — Run cleanup (only after user confirms)
+
+```bash
+bash skills/gmail-agent/bins/gmail-label-audit.sh "<label-name>" --cleanup "$GMAIL_ACCOUNT"
+```
+
+This removes the target label (and sublabels) from single-label messages only. Multi-label messages are skipped entirely — no labels are removed from them.
+
+Report the result:
+```
+Label Cleanup Complete: Professional/Companies
+- Cleaned: 32 messages (labels removed)
+- Skipped: 13 messages (multi-label, left alone)
 ```
 
 ## Scheduled Daily Run

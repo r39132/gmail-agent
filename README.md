@@ -1,5 +1,9 @@
 # Gmail Agent
 
+<p align="center">
+  <img src="docs/images/nano-banana_red-crab-gmail-cartoony.png" width="300" alt="Gmail Agent" />
+</p>
+
 A CLI-driven Gmail agent that summarizes unread messages and purges spam/trash folders. Ships with an [OpenClaw](https://openclaw.ai) skill for chat-based and scheduled use, but the core scripts work standalone with **any agent framework** or directly from the command line.
 
 ## What It Does
@@ -7,8 +11,44 @@ A CLI-driven Gmail agent that summarizes unread messages and purges spam/trash f
 | Capability | How | Delivery |
 |---|---|---|
 | **Summarize unread emails** | On-demand (chat or CLI) | Terminal, WhatsApp, or any channel |
+| **Folder structure & counts** | On-demand (chat or CLI) | Terminal, WhatsApp, or any channel |
+| **Label audit & cleanup** | On-demand (chat or CLI) | Terminal, WhatsApp, or any channel |
 | **Purge spam & trash** | On-demand or scheduled | Terminal, WhatsApp, or any channel |
 | **Daily digest + cleanup** | Cron job (noon, configurable) | WhatsApp (via OpenClaw) |
+
+## Skill Capabilities
+
+### 1. Summarize Unread Emails
+
+Two modes, selected automatically based on the user's request:
+
+- **Inbox only (default)** — triggered by "check my inbox", "summarize my emails", etc. Searches `is:unread in:inbox`.
+- **All unread** — triggered only when the user explicitly says "all" (e.g., "all my unread emails"). Searches `is:unread -in:spam -in:trash`.
+
+Output is formatted as a list showing From, Subject, and Date per message. When there are more than 20 unread messages, results are grouped by sender with counts instead of listing each individually. Capped at 50 messages.
+
+### 2. Folder Structure with Message Counts
+
+Runs `gmail-labels.sh` to enumerate all Gmail labels with total and unread counts. Output is rendered as an indented tree using `/` separators in label names, with system labels (INBOX, SENT, DRAFT, SPAM, TRASH) at the top and user labels below. Labels with zero messages are omitted.
+
+Note: this takes 1-2 minutes to run because it fetches counts for each label individually.
+
+### 4. Label Audit & Cleanup
+
+Runs `gmail-label-audit.sh` to inspect a specific label and all its sublabels. For each message, determines whether it has other user labels (system labels like INBOX, UNREAD, CATEGORY_* are ignored). Reports a breakdown:
+
+- **Single-label messages** — only tagged with the target label hierarchy. Safe to clean up.
+- **Multi-label messages** — also tagged with other user labels. Left untouched.
+
+After showing the report, prompts the user before proceeding. Cleanup removes the target label from single-label messages only; multi-label messages are skipped entirely.
+
+### 5. Clean Spam & Trash
+
+Runs `gmail-cleanup.sh` to batch-remove the SPAM and TRASH labels from all messages in those folders. Processes up to 500 messages per label in batches of 100 (Gmail API limit). Reports the count of messages cleaned from each folder.
+
+### Scheduled Daily Run (Cron)
+
+The daily cron job combines capabilities 1 and 5: summarizes all unread emails (using all-unread mode, not inbox-only) then cleans spam and trash, delivering a combined report via WhatsApp.
 
 ## Platform Support
 
@@ -133,11 +173,24 @@ For persistence, add `export GMAIL_ACCOUNT="your-email@gmail.com"` to your shell
 The core scripts work directly from the command line:
 
 ```bash
-# Summarize unread emails (using gog directly)
-gog gmail messages search "is:unread" --account "$GMAIL_ACCOUNT" --max 50 --plain
+source .env
+
+# Summarize unread inbox messages (default mode)
+gog gmail messages search "is:unread in:inbox" --account "$GMAIL_ACCOUNT" --max 50 --plain
+
+# Summarize ALL unread messages (excludes spam/trash)
+gog gmail messages search "is:unread -in:spam -in:trash" --account "$GMAIL_ACCOUNT" --max 50 --plain
+
+# Show folder structure with message counts
+bash skills/gmail-agent/bins/gmail-labels.sh
+
+# Audit a label (report only)
+bash skills/gmail-agent/bins/gmail-label-audit.sh "Professional/Companies"
+
+# Audit + clean up single-label messages
+bash skills/gmail-agent/bins/gmail-label-audit.sh "Professional/Companies" --cleanup
 
 # Clean spam and trash
-source .env
 bash skills/gmail-agent/bins/gmail-cleanup.sh
 ```
 
@@ -165,6 +218,9 @@ Message OpenClaw through any connected channel:
 
 - *"Summarize my unread emails"*
 - *"Check my inbox"*
+- *"Show my folder structure"*
+- *"Audit my Professional/Companies label"*
+- *"Clean up the Personal/Taxes/2020 label"*
 - *"Clean my spam and trash"*
 - *"What emails do I have?"*
 
@@ -260,7 +316,9 @@ gmail-agent/
 │   └── gmail-agent/
 │       ├── SKILL.md                   # Agent skill definition (OpenClaw + general)
 │       └── bins/
-│           └── gmail-cleanup.sh       # Standalone spam & trash purge script
+│           ├── gmail-cleanup.sh       # Spam & trash purge script
+│           ├── gmail-label-audit.sh   # Label audit & selective cleanup
+│           └── gmail-labels.sh        # Label tree with message counts
 └── setup/
     ├── install-skill.sh               # Symlink skill into OpenClaw workspace
     └── register-cron-jobs.sh          # Register cron jobs via OpenClaw CLI
@@ -270,7 +328,7 @@ gmail-agent/
 
 | Layer | Files | Framework dependency |
 |---|---|---|
-| **Core logic** | `gmail-cleanup.sh`, `gog` CLI commands in SKILL.md | None — just bash + gog + jq |
+| **Core logic** | `gmail-cleanup.sh`, `gmail-label-audit.sh`, `gmail-labels.sh`, `gog` CLI commands in SKILL.md | None — just bash + gog + jq |
 | **Agent instructions** | `SKILL.md` | OpenClaw format, but readable by any LLM |
 | **OpenClaw integration** | `setup/*.sh` | OpenClaw CLI |
 
