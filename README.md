@@ -1,181 +1,96 @@
-# Gmail Agent
+<!-------->
+[![Bash 4+](https://img.shields.io/badge/Bash-4%2B-4EAA25?logo=gnubash&logoColor=white)](#)
+[![gog CLI](https://img.shields.io/badge/gog-v0.9-4285F4?logo=google&logoColor=white)](https://github.com/nicholasgasior/gog)
+[![OpenClaw](https://img.shields.io/badge/OpenClaw-Skill-FF6B35?logo=lobster&logoColor=white)](https://openclaw.ai)
+[![ClawHub](https://img.shields.io/badge/ClawHub-gmail--agent-8B5CF6?logo=npm&logoColor=white)](https://clawhub.ai/skills/gmail-agent)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+![macOS](https://img.shields.io/badge/macOS-supported-000000?logo=apple&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-supported-FCC624?logo=linux&logoColor=black)
+
+---
 
 <p align="center">
   <img src="docs/images/nano-banana_red-crab-gmail-cartoony.png" width="300" alt="Gmail Agent" />
 </p>
 
+# Gmail Agent
+
 A CLI-driven Gmail agent that summarizes unread messages and purges spam/trash folders. Ships with an [OpenClaw](https://openclaw.ai) skill for chat-based and scheduled use, but the core scripts work standalone with **any agent framework** or directly from the command line.
 
-## What It Does
+---
 
-| Capability | How | Delivery |
-|---|---|---|
-| **Summarize unread emails** | On-demand (chat or CLI) | Terminal, WhatsApp, or any channel |
-| **Folder structure & counts** | On-demand (chat or CLI) | Terminal, WhatsApp, or any channel |
-| **Label audit & cleanup** | On-demand (chat or CLI) | Terminal, WhatsApp, or any channel |
-| **Purge spam & trash** | On-demand or scheduled | Terminal, WhatsApp, or any channel |
-| **Daily digest + cleanup** | Cron job (noon, configurable) | WhatsApp (via OpenClaw) |
+## Quick Start
 
-## Skill Capabilities
-
-### 1. Summarize Unread Emails
-
-Two modes, selected automatically based on the user's request:
-
-- **Inbox only (default)** — triggered by "check my inbox", "summarize my emails", etc. Searches `is:unread in:inbox`.
-- **All unread** — triggered only when the user explicitly says "all" (e.g., "all my unread emails"). Searches `is:unread -in:spam -in:trash`.
-
-Output is formatted as a list showing From, Subject, and Date per message. When there are more than 20 unread messages, results are grouped by sender with counts instead of listing each individually. Capped at 50 messages.
-
-### 2. Folder Structure with Message Counts
-
-Runs `gmail-labels.sh` to enumerate all Gmail labels with total and unread counts. Output is rendered as an indented tree using `/` separators in label names, with system labels (INBOX, SENT, DRAFT, SPAM, TRASH) at the top and user labels below. Labels with zero messages are omitted.
-
-Note: this takes 1-2 minutes to run because it fetches counts for each label individually.
-
-### 4. Label Audit & Cleanup
-
-Runs `gmail-label-audit.sh` to inspect a specific label and all its sublabels. For each message, determines whether it has other user labels (system labels like INBOX, UNREAD, CATEGORY_* are ignored). Reports a breakdown:
-
-- **Single-label messages** — only tagged with the target label hierarchy. Safe to clean up.
-- **Multi-label messages** — also tagged with other user labels. Left untouched.
-
-After showing the report, prompts the user before proceeding. Cleanup removes the target label from single-label messages only; multi-label messages are skipped entirely.
-
-### 5. Clean Spam & Trash
-
-Runs `gmail-cleanup.sh` to batch-remove the SPAM and TRASH labels from all messages in those folders. Processes up to 500 messages per label in batches of 100 (Gmail API limit). Reports the count of messages cleaned from each folder.
-
-### Scheduled Daily Run (Cron)
-
-The daily cron job combines capabilities 1 and 5: summarizes all unread emails (using all-unread mode, not inbox-only) then cleans spam and trash, delivering a combined report via WhatsApp.
-
-## Platform Support
-
-| Platform | Status | Notes |
-|---|---|---|
-| **macOS** | Fully supported | Tested on Apple Silicon and Intel |
-| **Linux** | Fully supported | Any distro with bash 4+ |
-| **Windows (WSL)** | Fully supported | Use WSL2 with Ubuntu or similar |
-| **Windows (native)** | Partial | Scripts require bash; use Git Bash or WSL |
-
-## Prerequisites
-
-- **bash** 4.0+ (ships with Linux; macOS users may need `brew install bash`)
-- **[gog CLI](https://github.com/nicholasgasior/gog)** — Google API CLI tool
-- **[jq](https://jqlang.github.io/jq/)** — JSON processor
-- A **Google Cloud project** with the Gmail API enabled
-
-### Installing Prerequisites
-
-<details>
-<summary>macOS (Homebrew)</summary>
+> Full GCP/OAuth setup instructions: **[Setup Guide](docs/SETUP.md)**
 
 ```bash
-brew install jq bash
+# 1. Install the CLI tools
+brew install jq bash          # macOS — Linux: apt-get install jq
 npm install -g gogcli
-```
-</details>
 
-<details>
-<summary>Ubuntu / Debian</summary>
-
-```bash
-sudo apt-get update && sudo apt-get install -y jq
-npm install -g gogcli
-```
-</details>
-
-<details>
-<summary>Fedora / RHEL</summary>
-
-```bash
-sudo dnf install -y jq
-npm install -g gogcli
-```
-</details>
-
-<details>
-<summary>Windows (WSL)</summary>
-
-```bash
-# Inside WSL (Ubuntu)
-sudo apt-get update && sudo apt-get install -y jq
-npm install -g gogcli
-```
-</details>
-
-## Setup
-
-### 1. Create a GCP Project and Enable Gmail API
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project (or select an existing one)
-3. Navigate to **APIs & Services > Library**
-4. Search for **Gmail API** and click **Enable**
-
-### 2. Create OAuth 2.0 Credentials
-
-1. Go to **APIs & Services > Credentials**
-2. Click **Create Credentials > OAuth client ID**
-3. Select **Desktop app** as the application type
-4. Give it a name (e.g., "Gmail Agent")
-5. Click **Create** and download the credentials JSON file
-
-> **Security note:** Store the credentials file outside this repository (e.g., `~/.config/gog/credentials.json`). Never commit credentials to version control.
-
-### 3. Configure OAuth Consent Screen
-
-1. Go to **APIs & Services > OAuth consent screen**
-2. Choose **External** (or **Internal** for Google Workspace orgs)
-3. Fill in required fields (app name, support email)
-4. Add these scopes:
-   - `https://www.googleapis.com/auth/gmail.readonly` — read messages
-   - `https://www.googleapis.com/auth/gmail.modify` — delete spam/trash
-5. Under **Test users**, add the Gmail address you'll use
-
-### 4. Authorize the gog CLI
-
-```bash
+# 2. Authenticate with Google
 gog auth login
+
+# 3. Set your Gmail account
+echo 'GMAIL_ACCOUNT="you@gmail.com"' > .env && source .env
+
+# 4. Try it out
+gog gmail messages search "is:unread in:inbox" --account "$GMAIL_ACCOUNT" --max 5 --plain
 ```
 
-This opens a browser for OAuth consent. After authorizing, verify it works:
+---
 
-```bash
-gog gmail messages search "is:unread" --account YOUR_EMAIL --max 5
+## Demo
+
+<p align="center">
+  <img src="docs/images/whatsapp-demo.png" width="1080" alt="WhatsApp demo showing gmail-agent in action" />
+  <br />
+  <em>Gmail Agent delivering an inbox summary via WhatsApp through OpenClaw</em>
+</p>
+
+The screenshot shows a WhatsApp conversation where I'm messaging myself. **Mr. Krabs**, my OpenClaw Superagent, listens to incoming messages and responds by executing the Gmail Agent skill. When I send "Summarize my inbox," Mr. Krabs triggers the skill, fetches my unread emails via the Gmail API, and replies with the summary—all within the same WhatsApp thread.
+
+---
+
+## Features
+
+| Capability | Description |
+|---|---|
+| **Inbox summary** | Lists unread messages with sender, subject, and date. Groups by sender when count > 20. |
+| **Folder structure** | Tree view of all Gmail labels with total and unread counts. |
+| **Label audit & cleanup** | Inspects a label hierarchy; identifies single-label messages safe to remove. |
+| **Spam & trash purge** | Batch-removes all messages from SPAM and TRASH folders. |
+| **Daily digest** | Scheduled cron job: summarize + purge, delivered to WhatsApp (via OpenClaw). |
+
+---
+
+## How It Works
+
+```mermaid
+flowchart LR
+    User["User\n(WhatsApp / CLI)"]
+    OC["OpenClaw\nGateway"]
+    Skill["gmail-agent\nskill"]
+    Scripts["bins/\nshell scripts"]
+    GOG["gog CLI"]
+    Gmail["Gmail API"]
+
+    User --> OC --> Skill --> Scripts --> GOG --> Gmail
+    User -.->|"direct CLI"| Scripts
 ```
 
-### 5. Configure Environment Variables
+The agent is a set of **bash scripts** that wrap the [`gog` CLI](https://github.com/nicholasgasior/gog). OpenClaw provides chat routing and scheduling, but the scripts run independently — pipe them into any framework that can exec shell commands.
 
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and set your Gmail address:
-
-```bash
-GMAIL_ACCOUNT="your-email@gmail.com"
-```
-
-Then source it:
-
-```bash
-source .env
-```
-
-For persistence, add `export GMAIL_ACCOUNT="your-email@gmail.com"` to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.).
+---
 
 ## Usage
 
-### Standalone (no agent framework needed)
-
-The core scripts work directly from the command line:
+### Standalone (CLI)
 
 ```bash
 source .env
 
-# Summarize unread inbox messages (default mode)
+# Summarize unread inbox messages
 gog gmail messages search "is:unread in:inbox" --account "$GMAIL_ACCOUNT" --max 50 --plain
 
 # Summarize ALL unread messages (excludes spam/trash)
@@ -196,25 +111,22 @@ bash skills/gmail-agent/bins/gmail-cleanup.sh
 
 ### With OpenClaw
 
-OpenClaw is an AI agent gateway that adds chat-based interaction and scheduling. If you use OpenClaw:
-
-#### Install the skill
-
 ```bash
+# Install the skill from ClawHub (recommended)
+clawhub install gmail-agent
+
+# Or install from source
 bash setup/install-skill.sh
-```
 
-This symlinks the skill into `~/.openclaw/workspace/skills/gmail-agent` so OpenClaw discovers it automatically.
-
-#### Register the daily cron job
-
-```bash
+# Register the daily cron job
 bash setup/register-cron-jobs.sh
+
+# Verify
+openclaw skills list | grep gmail
+openclaw cron list
 ```
 
-#### Chat with it
-
-Message OpenClaw through any connected channel:
+Then message OpenClaw through any connected channel:
 
 - *"Summarize my unread emails"*
 - *"Check my inbox"*
@@ -222,44 +134,17 @@ Message OpenClaw through any connected channel:
 - *"Audit my Professional/Companies label"*
 - *"Clean up the Personal/Taxes/2020 label"*
 - *"Clean my spam and trash"*
-- *"What emails do I have?"*
 
-#### Scheduled runs
+The cron job fires daily at noon Pacific (configurable in `.env`). It summarizes all unread emails, purges spam and trash, and delivers the report to WhatsApp.
 
-The cron job fires daily at noon Pacific (configurable in `.env`). It:
-1. Summarizes all unread emails
-2. Purges spam and trash
-3. Delivers the report to WhatsApp
-
-If a scheduled run is missed (machine asleep, gateway down), OpenClaw's retry backoff (30s, 1m, 5m, 15m, 60m) runs it at the next opportunity.
-
-#### Verify setup
-
-```bash
-openclaw skills list | grep gmail       # Skill discovered?
-openclaw cron list                       # Cron registered?
-openclaw cron run gmail-daily-noon       # Manual test run
-```
-
-### With Other Agent Frameworks
+<details>
+<summary>With other agent frameworks</summary>
 
 The core logic is plain shell commands using the `gog` CLI. You can integrate it with any framework that can execute shell commands.
 
-<details>
-<summary>Claude Code / Claude Desktop (MCP)</summary>
+**Claude Code / Claude Desktop (MCP)** — Use the `gog` commands from `SKILL.md` as tool calls. The SKILL.md file itself serves as a prompt/instruction document that any LLM agent can follow.
 
-Use the `gog` commands from `SKILL.md` as tool calls. The SKILL.md file itself serves as a prompt/instruction document that any LLM agent can follow.
-
-```bash
-# Example: have Claude Code run the cleanup
-bash skills/gmail-agent/bins/gmail-cleanup.sh "$GMAIL_ACCOUNT"
-```
-</details>
-
-<details>
-<summary>LangChain / LangGraph</summary>
-
-Wrap the shell commands as LangChain tools:
+**LangChain / LangGraph** — Wrap the shell commands as tools:
 
 ```python
 from langchain_core.tools import tool
@@ -286,24 +171,19 @@ def clean_spam_trash() -> str:
     )
     return result.stdout
 ```
-</details>
 
-<details>
-<summary>CrewAI</summary>
+**CrewAI** — Use CrewAI's shell tool or a custom tool that calls `gmail-cleanup.sh` and the `gog` CLI commands listed in SKILL.md.
 
-Use CrewAI's shell tool or a custom tool that calls `gmail-cleanup.sh` and the `gog` CLI commands listed in SKILL.md.
-</details>
-
-<details>
-<summary>Plain cron (no agent framework)</summary>
-
-Skip agent frameworks entirely and schedule via system cron:
+**Plain cron (no agent framework)** — Schedule via system cron:
 
 ```bash
 # crontab -e
 0 12 * * * source ~/.env && bash ~/Projects/gmail-agent/skills/gmail-agent/bins/gmail-cleanup.sh >> ~/gmail-agent.log 2>&1
 ```
+
 </details>
+
+---
 
 ## Project Structure
 
@@ -312,6 +192,9 @@ gmail-agent/
 ├── .env.example                       # Template for environment variables
 ├── .gitignore                         # Excludes .env, credentials, OS artifacts
 ├── README.md                          # This file
+├── docs/
+│   ├── SETUP.md                       # Full GCP/OAuth setup guide
+│   └── images/
 ├── skills/
 │   └── gmail-agent/
 │       ├── SKILL.md                   # Agent skill definition (OpenClaw + general)
@@ -324,15 +207,13 @@ gmail-agent/
     └── register-cron-jobs.sh          # Register cron jobs via OpenClaw CLI
 ```
 
-### What lives where
-
 | Layer | Files | Framework dependency |
 |---|---|---|
 | **Core logic** | `gmail-cleanup.sh`, `gmail-label-audit.sh`, `gmail-labels.sh`, `gog` CLI commands in SKILL.md | None — just bash + gog + jq |
 | **Agent instructions** | `SKILL.md` | OpenClaw format, but readable by any LLM |
 | **OpenClaw integration** | `setup/*.sh` | OpenClaw CLI |
 
-## Environment Variables Reference
+## Configuration
 
 | Variable | Required | Description |
 |---|---|---|
@@ -342,34 +223,44 @@ gmail-agent/
 
 ## Troubleshooting
 
-### `gog: command not found`
+<details>
+<summary><code>gog: command not found</code></summary>
 
 Install it: `npm install -g gogcli`. Ensure your npm global bin directory is in `$PATH`.
+</details>
 
-### `jq: command not found`
+<details>
+<summary><code>jq: command not found</code></summary>
 
-See [Installing Prerequisites](#installing-prerequisites) for your platform.
+Install via your package manager — see [Setup Guide](docs/SETUP.md#1-install-prerequisites).
+</details>
 
-### `Error: No Gmail account specified`
+<details>
+<summary><code>Error: No Gmail account specified</code></summary>
 
 Set `GMAIL_ACCOUNT` in your `.env` file and run `source .env`, or pass it as an argument:
 ```bash
 bash skills/gmail-agent/bins/gmail-cleanup.sh your-email@gmail.com
 ```
+</details>
 
-### Gmail API returns 403 Forbidden
+<details>
+<summary>Gmail API returns 403 Forbidden</summary>
 
 1. Confirm the Gmail API is enabled in your GCP project
 2. Verify your OAuth consent screen includes the `gmail.readonly` and `gmail.modify` scopes
 3. Re-authenticate: `gog auth login`
+</details>
 
-### Cron job not firing (OpenClaw)
+<details>
+<summary>Cron job not firing (OpenClaw)</summary>
 
 ```bash
 openclaw cron list                       # Is the job registered?
 openclaw cron run gmail-daily-noon       # Does manual trigger work?
 openclaw gateway status                  # Is the gateway running?
 ```
+</details>
 
 ## License
 
