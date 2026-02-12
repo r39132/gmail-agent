@@ -15,7 +15,7 @@
 
 # Gmail Agent
 
-A CLI-driven Gmail agent that summarizes unread messages, purges spam/trash folders, and moves messages to labels via keyword search. Ships with an [OpenClaw](https://openclaw.ai) skill for chat-based and scheduled use, but the core scripts work standalone with **any agent framework** or directly from the command line.
+A CLI-driven Gmail agent that summarizes unread messages, purges spam/trash folders, moves messages to labels via keyword search, and deletes labels with optional message cleanup. Ships with an [OpenClaw](https://openclaw.ai) skill for chat-based and scheduled use, but the core scripts work standalone with **any agent framework** or directly from the command line.
 
 ---
 
@@ -28,13 +28,16 @@ A CLI-driven Gmail agent that summarizes unread messages, purges spam/trash fold
 brew install jq bash          # macOS — Linux: apt-get install jq
 npm install -g gogcli
 
-# 2. Authenticate with Google
+# 2. Install GAM (for label deletion - optional)
+# See: https://github.com/GAM-team/GAM
+
+# 3. Authenticate with Google
 gog auth login
 
-# 3. Set your Gmail account
+# 4. Set your Gmail account
 echo 'GMAIL_ACCOUNT="you@gmail.com"' > .env && source .env
 
-# 4. Try it out
+# 5. Try it out
 gog gmail messages search "is:unread in:inbox" --account "$GMAIL_ACCOUNT" --max 5 --plain
 ```
 
@@ -61,6 +64,7 @@ The screenshot shows a WhatsApp conversation where I'm messaging myself. **Mr. K
 | **Label audit & cleanup** | Inspects a label hierarchy; identifies single-label messages safe to remove. |
 | **Spam & trash purge** | Batch-removes all messages from SPAM and TRASH folders. |
 | **Move to label** | Search labels by keyword and move messages from inbox interactively. |
+| **Delete labels** | Delete a label and all sublabels with optional message deletion (requires GAM). |
 | **Daily digest** | Scheduled cron job: summarize + purge, delivered to WhatsApp (via OpenClaw). |
 
 ---
@@ -163,7 +167,26 @@ View the full skill definition with all capabilities and trigger patterns.
 5. Moves messages
 6. Offers undo option
 
-#### 6. Daily Digest (Cron)
+#### 6. Delete Labels (Destructive)
+**What it does:** Deletes a label and all its sublabels, with optional deletion of single-label messages.
+
+**Example triggers:**
+- "Delete my Professional/OldCompany label"
+- "Remove the Travel/2020 folder and everything under it"
+- "Delete the Archive/2019 label"
+
+**Requirements:** GAM (Google Apps Manager) must be installed
+
+**Interactive workflow:**
+1. Confirms label deletion intent
+2. Asks whether to also delete messages (only single-label messages)
+3. Shows all matching labels (target + sublabels)
+4. Requires explicit 'DELETE' confirmation
+5. Executes deletion and reports results
+
+**Safety:** Multi-label messages are never deleted, only single-label messages (when requested).
+
+#### 7. Daily Digest (Cron)
 **What it does:** Scheduled cron job that summarizes all unread emails, purges spam/trash, and delivers report via WhatsApp.
 
 **Trigger:** Automatic (runs on schedule, default: noon Pacific)
@@ -251,6 +274,12 @@ bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --move "Per
 
 # Step 4: Undo if needed
 bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --undo "Personal/Receipts" msg-id-1 msg-id-2
+
+# Delete a label and all sublabels (labels only, keep messages)
+bash skills/gmail-agent/bins/gmail-delete-labels.sh "Professional/OldCompany" "$GMAIL_ACCOUNT"
+
+# Delete a label and single-label messages
+bash skills/gmail-agent/bins/gmail-delete-labels.sh "Professional/OldCompany" --delete-messages "$GMAIL_ACCOUNT"
 ```
 
 ### With OpenClaw
@@ -280,6 +309,7 @@ Then message OpenClaw through any connected channel:
 - *"Clean my spam and trash"*
 - *"Move messages to Receipts folder"*
 - *"File these emails in Travel"*
+- *"Delete my Professional/OldCompany label"*
 
 The cron job fires daily at noon Pacific (configurable in `.env`). It summarizes all unread emails, purges spam and trash, and delivers the report to WhatsApp.
 
@@ -346,6 +376,7 @@ gmail-agent/
 │       ├── SKILL.md                   # Agent skill definition (OpenClaw + general)
 │       └── bins/
 │           ├── gmail-cleanup.sh       # Spam & trash purge script
+│           ├── gmail-delete-labels.sh # Delete labels (and optionally messages) via GAM
 │           ├── gmail-label-audit.sh   # Label audit & selective cleanup
 │           ├── gmail-labels.sh        # Label tree with message counts
 │           └── gmail-move-to-label.sh # Interactive move-to-label via keyword search
@@ -356,7 +387,7 @@ gmail-agent/
 
 | Layer | Files | Framework dependency |
 |---|---|---|
-| **Core logic** | `gmail-cleanup.sh`, `gmail-label-audit.sh`, `gmail-labels.sh`, `gmail-move-to-label.sh`, `gog` CLI commands in SKILL.md | None — just bash + gog + jq |
+| **Core logic** | `gmail-cleanup.sh`, `gmail-delete-labels.sh`, `gmail-label-audit.sh`, `gmail-labels.sh`, `gmail-move-to-label.sh`, `gog` CLI commands in SKILL.md | None — just bash + gog + jq (+ GAM for label deletion) |
 | **Agent instructions** | `SKILL.md` | OpenClaw format, but readable by any LLM |
 | **OpenClaw integration** | `setup/*.sh` | OpenClaw CLI |
 
@@ -407,6 +438,29 @@ openclaw cron list                       # Is the job registered?
 openclaw cron run gmail-daily-noon       # Does manual trigger work?
 openclaw gateway status                  # Is the gateway running?
 ```
+</details>
+
+<details>
+<summary><code>gam: command not found</code> (for label deletion)</summary>
+
+GAM (Google Apps Manager) is required for label deletion. Install it:
+
+**Option 1: Direct install (recommended)**
+```bash
+bash <(curl -s -S -L https://gam-shortn.appspot.com/gam-install)
+```
+
+**Option 2: Check Homebrew**
+```bash
+brew search gam  # Check if available in your Homebrew taps
+```
+
+**Verify installation:**
+```bash
+gam version
+```
+
+See: https://github.com/GAM-team/GAM
 </details>
 
 ## License

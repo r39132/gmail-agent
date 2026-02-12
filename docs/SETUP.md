@@ -10,6 +10,10 @@ Full setup instructions for gmail-agent: GCP project, OAuth credentials, CLI too
 - **[gog CLI](https://github.com/nicholasgasior/gog)** — Google API CLI tool
 - **[jq](https://jqlang.github.io/jq/)** — JSON processor
 
+### Optional tools (for label deletion)
+
+- **[GAM](https://github.com/GAM-team/GAM)** — Google Apps Manager (required only for deleting labels)
+
 ### Platform-specific installation
 
 <details>
@@ -47,6 +51,27 @@ npm install -g gogcli
 sudo apt-get update && sudo apt-get install -y jq
 npm install -g gogcli
 ```
+</details>
+
+<details>
+<summary>GAM Installation (Optional - for label deletion)</summary>
+
+**Direct install (recommended):**
+```bash
+bash <(curl -s -S -L https://gam-shortn.appspot.com/gam-install)
+```
+
+**Verify installation:**
+```bash
+gam version
+```
+
+**Authenticate GAM with your Google account:**
+```bash
+gam user your-email@gmail.com check serviceaccount
+```
+
+See full documentation: https://github.com/GAM-team/GAM
 </details>
 
 ## 2. Create a GCP Project and Enable Gmail API
