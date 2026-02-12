@@ -364,7 +364,7 @@ When user requests label deletion, first confirm what they want to delete:
 
 Ask for explicit confirmation before proceeding:
 
-> "Ready to delete the label **[label-name]** and all sublabels [and trash single-label messages]?
+> "Ready to delete the label **[label-name]** and all sublabels [and trash ALL messages]?
 > Type 'DELETE' to confirm, or 'cancel' to abort."
 
 **DO NOT proceed unless user types exactly 'DELETE'.**
@@ -385,8 +385,9 @@ bash skills/gmail-agent/bins/gmail-delete-labels.sh "<label-name>" "$GMAIL_ACCOU
 
 The script will:
 1. Find all matching labels (target + sublabels)
-2. Optionally trash single-label messages (if --delete-messages)
+2. Optionally trash ALL messages (if --delete-messages)
 3. Delete the label definitions via Gmail API (children first, parent last)
+4. Empty trash if messages were deleted (automatic cleanup)
 
 ### Step 4 — Report results
 
