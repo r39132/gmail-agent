@@ -30,13 +30,13 @@ Activate this skill when the user asks about any of the following:
 
 The user's Gmail account is available via the `GMAIL_ACCOUNT` environment variable.
 
-## Capability 1: Summarize Unread Emails
+## Capability 1: Inbox Summary
 
 **CRITICAL — There are two modes. You MUST choose the correct one:**
 
-1. **Inbox only (THIS IS THE DEFAULT — use this unless the user says "all"):**
-   Use this for: "summarize my emails", "check my inbox", "check my email", "what's new", "unread emails", or ANY request that does NOT contain the word "all".
-   Query: `is:unread in:inbox`
+1. **Inbox (THIS IS THE DEFAULT — use this unless the user says "all"):**
+   Use this for: "summarize my emails", "check my inbox", "check my email", "what's new", or ANY request that does NOT contain the word "all".
+   Query: `in:inbox` (shows ALL messages, both read and unread)
 
 2. **All unread (ONLY when user explicitly says "all"):**
    Use this ONLY for: "all my unread emails", "all unread", "summarize all", "everything unread".
@@ -45,11 +45,11 @@ The user's Gmail account is available via the `GMAIL_ACCOUNT` environment variab
 
 **When in doubt, use inbox only.**
 
-### Step 1 — Search unread messages
+### Step 1 — Search messages
 
-**Inbox only (default — ALWAYS use this unless user says "all"):**
+**Inbox (default — ALWAYS use this unless user says "all"):**
 ```bash
-gog gmail messages search "is:unread in:inbox" --account "$GMAIL_ACCOUNT" --max 50 --plain
+gog gmail messages search "in:inbox" --account "$GMAIL_ACCOUNT" --max 50 --plain
 ```
 
 **All unread (ONLY when user explicitly includes the word "all"):**
@@ -71,21 +71,38 @@ Use `--format metadata --headers "From,Subject,Date"` for just headers, or `--fo
 
 Present the summary in this format:
 
+**For inbox mode (default):**
 ```
-Unread Inbox Summary — <count> messages          (or "Unread Summary (All)" for all-unread mode)
+Inbox Summary — <count> messages (<unread_count> unread)
 
-From: <sender>
+** From: <sender>          [Mark unread messages with ** prefix]
+** Subject: <subject>
+** Date: <date>
+---
+From: <sender>             [Read messages have no prefix]
 Subject: <subject>
 Date: <date>
 ---
 (repeat for each message)
 ```
 
-Group messages by sender if there are multiple from the same sender. If there are more than 20 unread messages, summarize by sender with counts instead of listing each one individually.
-
-If there are no unread messages, respond with:
+**For all-unread mode:**
 ```
-Inbox Zero — no unread messages!
+All Unread Summary — <count> messages
+
+From: <sender>
+Subject: <subject>
+Date: <date>
+Labels: <labels>
+---
+(repeat for each message)
+```
+
+**Grouping:** If there are more than 20 messages, group by sender with counts instead of listing individually.
+
+**Empty inbox:**
+```
+Inbox is empty!
 ```
 
 ## Capability 2: Folder Structure with Message Counts

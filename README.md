@@ -35,7 +35,7 @@ gog auth login
 echo 'GMAIL_ACCOUNT="you@gmail.com"' > .env && source .env
 
 # 4. Try it out
-gog gmail messages search "is:unread in:inbox" --account "$GMAIL_ACCOUNT" --max 5 --plain
+gog gmail messages search "in:inbox" --account "$GMAIL_ACCOUNT" --max 5 --plain
 ```
 
 ---
@@ -56,7 +56,7 @@ The screenshot shows a WhatsApp conversation where I'm messaging myself. **Mr. K
 
 | Capability | Description |
 |---|---|
-| **Inbox summary** | Lists unread messages with sender, subject, and date. Groups by sender when count > 20. |
+| **Inbox summary** | Lists ALL inbox messages (read + unread). Marks unread with "**". Groups by sender when count > 20. |
 | **Folder structure** | Tree view of all Gmail labels with total and unread counts. |
 | **Label audit & cleanup** | Inspects a label hierarchy and removes labels from ALL messages. |
 | **Spam & trash purge** | Batch-removes all messages from SPAM and TRASH folders. |
@@ -100,18 +100,18 @@ View the full skill definition with all capabilities and trigger patterns.
 ### Available Skills & Example Triggers
 
 #### 1. Inbox Summary
-**What it does:** Lists unread messages with sender, subject, and date. Groups by sender when count > 20.
+**What it does:** Lists ALL inbox messages (read + unread) with sender, subject, and date. Marks unread messages with "**" prefix. Groups by sender when count > 20.
 
 **Example triggers:**
 - "Summarize my inbox"
 - "Check my email"
 - "What's new in my inbox?"
-- "Show me unread messages"
-- "Do I have any new emails?"
+- "Show me my inbox"
+- "List my inbox messages"
 
 **Mode options:**
-- **Inbox only (default):** Most requests without "all"
-- **All unread:** "Summarize ALL my emails", "Show me everything unread"
+- **Inbox (default):** Shows ALL inbox messages, marks unread with "**"
+- **All unread:** "Summarize ALL my emails", "Show me everything unread" (searches all folders)
 
 #### 2. Folder Structure
 **What it does:** Tree view of all Gmail labels with total and unread counts.
@@ -253,10 +253,10 @@ The agent is a set of **bash scripts** that wrap the [`gog` CLI](https://github.
 ```bash
 source .env
 
-# Summarize unread inbox messages
-gog gmail messages search "is:unread in:inbox" --account "$GMAIL_ACCOUNT" --max 50 --plain
+# Summarize ALL inbox messages (read + unread)
+gog gmail messages search "in:inbox" --account "$GMAIL_ACCOUNT" --max 50 --plain
 
-# Summarize ALL unread messages (excludes spam/trash)
+# Summarize ALL unread messages everywhere (excludes spam/trash)
 gog gmail messages search "is:unread -in:spam -in:trash" --account "$GMAIL_ACCOUNT" --max 50 --plain
 
 # Show folder structure with message counts
