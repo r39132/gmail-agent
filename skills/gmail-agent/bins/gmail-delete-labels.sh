@@ -96,7 +96,7 @@ echo "Delete messages: ${DELETE_MESSAGES}"
 echo ""
 
 # --- Step 1: Find all matching labels (target + sublabels) ---
-echo "[1/3] Finding matching labels..."
+echo "[1/4] Finding matching labels..."
 
 all_labels_tsv=$(gog gmail labels list --account "$ACCOUNT" --plain 2>/dev/null \
     | tail -n +2)
@@ -125,7 +125,7 @@ echo ""
 
 # --- Step 2: Optionally trash ALL messages ---
 if [[ "$DELETE_MESSAGES" == true ]]; then
-    echo "[2/3] Trashing ALL messages with these labels..."
+    echo "[2/4] Trashing ALL messages with these labels..."
 
     total_deleted=0
 
@@ -162,12 +162,12 @@ if [[ "$DELETE_MESSAGES" == true ]]; then
     echo "Total messages trashed: $total_deleted"
     echo ""
 else
-    echo "[2/3] Skipping message deletion (--delete-messages not specified)"
+    echo "[2/4] Skipping message deletion (--delete-messages not specified)"
     echo ""
 fi
 
 # --- Step 3: Delete the labels via Gmail API (Python) ---
-echo "[3/3] Deleting labels via Gmail API..."
+echo "[3/4] Deleting labels via Gmail API..."
 
 # Export gog token temporarily
 TOKEN_FILE=$(mktemp /tmp/gog_token_XXXXXX.json)
@@ -263,4 +263,59 @@ if [[ "${failed_count:-0}" -gt 0 ]]; then
     echo "Labels failed: $failed_count"
 fi
 echo ""
+
+# --- Step 4: Empty trash if messages were deleted ---
+if [[ "$DELETE_MESSAGES" == true ]] && [[ $total_deleted -gt 0 ]]; then
+    echo "[4/4] Emptying trash..."
+
+    trash_emptied=0
+    while true; do
+        # Get trash message IDs
+        ids=$(gog gmail messages search "in:trash" \
+            --account "$ACCOUNT" \
+            --max 500 \
+            --plain 2>&1 \
+            | tail -n +2 \
+            | grep -vE '^(#|No results)' \
+            | cut -f1 || true)
+
+        if [[ -z "$ids" ]]; then
+            break
+        fi
+
+        batch_count=0
+        batch_ids=()
+
+        while IFS= read -r id; do
+            [[ -z "$id" ]] && continue
+            batch_ids+=("$id")
+            ((batch_count++))
+
+            if [[ ${#batch_ids[@]} -ge 100 ]]; then
+                gog gmail batch modify "${batch_ids[@]}" \
+                    --account "$ACCOUNT" \
+                    --remove="TRASH" \
+                    --force &>/dev/null
+                batch_ids=()
+            fi
+        done <<< "$ids"
+
+        if [[ ${#batch_ids[@]} -gt 0 ]]; then
+            gog gmail batch modify "${batch_ids[@]}" \
+                --account "$ACCOUNT" \
+                --remove="TRASH" \
+                --force &>/dev/null
+        fi
+
+        trash_emptied=$((trash_emptied + batch_count))
+
+        if [[ $batch_count -lt 500 ]]; then
+            break
+        fi
+    done
+
+    echo "Trash emptied: $trash_emptied messages permanently deleted"
+    echo ""
+fi
+
 echo "Done!"

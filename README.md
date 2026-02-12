@@ -61,8 +61,8 @@ The screenshot shows a WhatsApp conversation where I'm messaging myself. **Mr. K
 | **Label audit & cleanup** | Inspects a label hierarchy; identifies single-label messages safe to remove. |
 | **Spam & trash purge** | Batch-removes all messages from SPAM and TRASH folders. |
 | **Move to label** | Search labels by keyword and move messages from inbox interactively. |
-| **Delete labels** | Delete a label and all sublabels with optional deletion of ALL messages (via Gmail API). |
-| **Delete old messages** | Delete messages older than a specific date from a label and sublabels. |
+| **Delete labels** | Delete a label and all sublabels with optional deletion of ALL messages. Automatically empties trash. |
+| **Delete old messages** | Delete messages older than a specific date from a label and sublabels. Automatically empties trash. |
 | **Daily digest** | Scheduled cron job: summarize + purge, delivered to WhatsApp (via OpenClaw). |
 
 ---
@@ -180,7 +180,7 @@ View the full skill definition with all capabilities and trigger patterns.
 4. Requires explicit 'DELETE' confirmation
 5. Executes deletion and reports results
 
-**Safety:** When deleting messages, ALL messages with the target labels are trashed (even if they have other labels).
+**Safety:** When deleting messages, ALL messages with the target labels are permanently deleted (trash is automatically emptied).
 
 #### 7. Delete Old Messages (By Date)
 **What it does:** Deletes all messages older than a specific date from a label and its sublabels.

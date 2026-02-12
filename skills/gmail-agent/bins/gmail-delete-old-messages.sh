@@ -96,7 +96,7 @@ echo "Account: ${ACCOUNT}"
 echo ""
 
 # --- Step 1: Find matching labels ---
-echo "[1/3] Finding matching labels..."
+echo "[1/4] Finding matching labels..."
 
 all_labels_tsv=$(gog gmail labels list --account "$ACCOUNT" --plain 2>/dev/null | tail -n +2)
 
@@ -123,14 +123,14 @@ done
 echo ""
 
 # --- Step 2: Convert date to Gmail search format (YYYY/MM/DD) ---
-echo "[2/3] Converting date format..."
+echo "[2/4] Converting date format..."
 IFS='/' read -r month day year <<< "$DATE"
 GMAIL_DATE="${year}/${month}/${day}"
 echo "Gmail search format: before:${GMAIL_DATE}"
 echo ""
 
 # --- Step 3: Search and delete old messages ---
-echo "[3/3] Finding and trashing old messages..."
+echo "[3/4] Finding and trashing old messages..."
 
 # Export gog token
 TOKEN_FILE=$(mktemp /tmp/gog_token_XXXXXX.json)
@@ -257,4 +257,59 @@ if [[ "${failed_count:-0}" -gt 0 ]]; then
     echo "Messages failed: $failed_count"
 fi
 echo ""
+
+# --- Step 4: Empty trash if messages were trashed ---
+if [[ "${trashed_count:-0}" -gt 0 ]]; then
+    echo "[4/4] Emptying trash..."
+
+    trash_emptied=0
+    while true; do
+        # Get trash message IDs
+        ids=$(gog gmail messages search "in:trash" \
+            --account "$ACCOUNT" \
+            --max 500 \
+            --plain 2>&1 \
+            | tail -n +2 \
+            | grep -vE '^(#|No results)' \
+            | cut -f1 || true)
+
+        if [[ -z "$ids" ]]; then
+            break
+        fi
+
+        batch_count=0
+        batch_ids=()
+
+        while IFS= read -r id; do
+            [[ -z "$id" ]] && continue
+            batch_ids+=("$id")
+            ((batch_count++))
+
+            if [[ ${#batch_ids[@]} -ge 100 ]]; then
+                gog gmail batch modify "${batch_ids[@]}" \
+                    --account "$ACCOUNT" \
+                    --remove="TRASH" \
+                    --force &>/dev/null
+                batch_ids=()
+            fi
+        done <<< "$ids"
+
+        if [[ ${#batch_ids[@]} -gt 0 ]]; then
+            gog gmail batch modify "${batch_ids[@]}" \
+                --account "$ACCOUNT" \
+                --remove="TRASH" \
+                --force &>/dev/null
+        fi
+
+        trash_emptied=$((trash_emptied + batch_count))
+
+        if [[ $batch_count -lt 500 ]]; then
+            break
+        fi
+    done
+
+    echo "Trash emptied: $trash_emptied messages permanently deleted"
+    echo ""
+fi
+
 echo "Done!"

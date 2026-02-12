@@ -403,13 +403,14 @@ Labels deleted: 4/4
 
 [If --delete-messages was used:]
 Messages trashed: 12
+Trash emptied: 12 messages permanently deleted
 ```
 
 ### Safety Notes
 
 - **This operation is irreversible** — deleted labels cannot be recovered
-- Trashed messages go to Gmail Trash (recoverable for 30 days)
-- When --delete-messages is used, ALL messages with these labels are trashed (even if they have other labels)
+- When --delete-messages is used, ALL messages with these labels are trashed and then **permanently deleted** (trash is automatically emptied)
+- Messages cannot be recovered after trash is emptied
 
 ### Error Handling
 
@@ -478,9 +479,15 @@ Parse the script output and report:
 Old Messages Deleted
 
 Messages trashed: 245
+Trash emptied: 245 messages permanently deleted
 - From label: Personal/Archive and sublabels
 - Before date: 01/01/2020
 ```
+
+### Safety Notes
+
+- **This operation is irreversible** — messages are permanently deleted (trash is automatically emptied)
+- Messages cannot be recovered after deletion
 
 ### Example Workflow
 
@@ -498,6 +505,7 @@ Agent: [executes deletion]
 Old Messages Deleted
 
 Messages trashed: 245
+Trash emptied: 245 messages permanently deleted
 - From label: Personal/Archive and sublabels
 - Before date: 01/01/2020
 ```
