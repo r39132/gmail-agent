@@ -28,17 +28,13 @@ A CLI-driven Gmail agent that summarizes unread messages, purges spam/trash fold
 brew install jq bash          # macOS — Linux: apt-get install jq
 npm install -g gogcli
 
-# 2. Install GAM (for label deletion - optional)
-bash <(curl -s -S -L https://gam-shortn.appspot.com/gam-install)
-# Creates symlink: ln -sf ~/bin/gam7/gam ~/.local/bin/gam
-
-# 3. Authenticate with Google
+# 2. Authenticate with Google
 gog auth login
 
-# 4. Set your Gmail account
+# 3. Set your Gmail account
 echo 'GMAIL_ACCOUNT="you@gmail.com"' > .env && source .env
 
-# 5. Try it out
+# 4. Try it out
 gog gmail messages search "is:unread in:inbox" --account "$GMAIL_ACCOUNT" --max 5 --plain
 ```
 
@@ -65,7 +61,7 @@ The screenshot shows a WhatsApp conversation where I'm messaging myself. **Mr. K
 | **Label audit & cleanup** | Inspects a label hierarchy; identifies single-label messages safe to remove. |
 | **Spam & trash purge** | Batch-removes all messages from SPAM and TRASH folders. |
 | **Move to label** | Search labels by keyword and move messages from inbox interactively. |
-| **Delete labels** | Delete a label and all sublabels with optional message deletion (requires GAM). |
+| **Delete labels** | Delete a label and all sublabels with optional message deletion (via Gmail API). |
 | **Daily digest** | Scheduled cron job: summarize + purge, delivered to WhatsApp (via OpenClaw). |
 
 ---
@@ -175,8 +171,6 @@ View the full skill definition with all capabilities and trigger patterns.
 - "Delete my Professional/OldCompany label"
 - "Remove the Travel/2020 folder and everything under it"
 - "Delete the Archive/2019 label"
-
-**Requirements:** GAM (Google Apps Manager) must be installed
 
 **Interactive workflow:**
 1. Confirms label deletion intent
@@ -377,7 +371,7 @@ gmail-agent/
 │       ├── SKILL.md                   # Agent skill definition (OpenClaw + general)
 │       └── bins/
 │           ├── gmail-cleanup.sh       # Spam & trash purge script
-│           ├── gmail-delete-labels.sh # Delete labels (and optionally messages) via GAM
+│           ├── gmail-delete-labels.sh # Delete labels (and optionally messages) via Gmail API
 │           ├── gmail-label-audit.sh   # Label audit & selective cleanup
 │           ├── gmail-labels.sh        # Label tree with message counts
 │           └── gmail-move-to-label.sh # Interactive move-to-label via keyword search
@@ -388,7 +382,7 @@ gmail-agent/
 
 | Layer | Files | Framework dependency |
 |---|---|---|
-| **Core logic** | `gmail-cleanup.sh`, `gmail-delete-labels.sh`, `gmail-label-audit.sh`, `gmail-labels.sh`, `gmail-move-to-label.sh`, `gog` CLI commands in SKILL.md | None — just bash + gog + jq (+ GAM for label deletion) |
+| **Core logic** | `gmail-cleanup.sh`, `gmail-delete-labels.sh`, `gmail-label-audit.sh`, `gmail-labels.sh`, `gmail-move-to-label.sh`, `gog` CLI commands in SKILL.md | bash + gog + jq + python3 (google-auth, google-api-python-client) |
 | **Agent instructions** | `SKILL.md` | OpenClaw format, but readable by any LLM |
 | **OpenClaw integration** | `setup/*.sh` | OpenClaw CLI |
 
@@ -442,26 +436,15 @@ openclaw gateway status                  # Is the gateway running?
 </details>
 
 <details>
-<summary><code>gam: command not found</code> (for label deletion)</summary>
+<summary>Label deletion fails with missing Python packages</summary>
 
-GAM (Google Apps Manager) is required for label deletion. Install it:
+Label deletion requires Python packages for direct Gmail API access. Install them:
 
-**Option 1: Direct install (recommended)**
 ```bash
-bash <(curl -s -S -L https://gam-shortn.appspot.com/gam-install)
+pip install google-auth google-api-python-client
 ```
 
-**Option 2: Check Homebrew**
-```bash
-brew search gam  # Check if available in your Homebrew taps
-```
-
-**Verify installation:**
-```bash
-gam version
-```
-
-See: https://github.com/GAM-team/GAM
+The script also needs `gog` OAuth credentials (created during `gog auth login`).
 </details>
 
 ## License

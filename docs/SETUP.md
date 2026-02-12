@@ -12,7 +12,7 @@ Full setup instructions for gmail-agent: GCP project, OAuth credentials, CLI too
 
 ### Optional tools (for label deletion)
 
-- **[GAM](https://github.com/GAM-team/GAM)** — Google Apps Manager (required only for deleting labels)
+- **python3** with `google-auth` and `google-api-python-client` packages (`pip install google-auth google-api-python-client`)
 
 ### Platform-specific installation
 
@@ -54,24 +54,15 @@ npm install -g gogcli
 </details>
 
 <details>
-<summary>GAM Installation (Optional - for label deletion)</summary>
+<summary>Python packages (Optional - for label deletion)</summary>
 
-**Direct install (recommended):**
+Label deletion uses the Gmail API directly via Python. Install the required packages:
+
 ```bash
-bash <(curl -s -S -L https://gam-shortn.appspot.com/gam-install)
+pip install google-auth google-api-python-client
 ```
 
-**Verify installation:**
-```bash
-gam version
-```
-
-**Authenticate GAM with your Google account:**
-```bash
-gam user your-email@gmail.com check serviceaccount
-```
-
-See full documentation: https://github.com/GAM-team/GAM
+No separate authentication is needed — the script reuses your existing `gog` OAuth credentials.
 </details>
 
 ## 2. Create a GCP Project and Enable Gmail API

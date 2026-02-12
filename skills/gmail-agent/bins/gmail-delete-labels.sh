@@ -1,30 +1,32 @@
 #!/usr/bin/env bash
 #
-# gmail-delete-labels.sh — Delete a Gmail label and all sublabels, with optional message deletion
+# gmail-delete-labels.sh — Delete a Gmail label and all sublabels via Gmail API
 #
 # Usage: gmail-delete-labels.sh <label-name> [--delete-messages] [account-email]
 #
 # This script performs a two-phase deletion:
-# 1. Optional: Delete messages where the target label (or sublabels) is the ONLY user label
-# 2. Delete the label(s) themselves using GAM
+# 1. Optional: Trash messages where the target label (or sublabels) is the ONLY user label
+# 2. Delete the label(s) via Gmail API (using gog OAuth credentials + Python)
 #
 # Requirements:
-# - gog CLI (for message operations)
-# - GAM (Google Apps Manager) for label deletion
+# - gog CLI (for listing labels and message operations)
+# - python3 with google-auth and google-api-python-client
 # - jq (for JSON parsing)
 #
 set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 usage() {
     echo "Usage: $0 <label-name> [--delete-messages] [account-email]" >&2
     echo "" >&2
     echo "  label-name         The Gmail label to delete (e.g., 'Professional/OldCompany')" >&2
-    echo "  --delete-messages  Also delete messages with only this label (single-label messages)" >&2
+    echo "  --delete-messages  Also trash messages with only this label (single-label messages)" >&2
     echo "  account            Gmail address (defaults to \$GMAIL_ACCOUNT)" >&2
     echo "" >&2
     echo "Examples:" >&2
-    echo "  $0 'Professional/OldCompany'                    # Delete label only" >&2
-    echo "  $0 'Professional/OldCompany' --delete-messages  # Delete label + single-label messages" >&2
+    echo "  $0 'Professional/OldCompany'                    # Delete labels only" >&2
+    echo "  $0 'Professional/OldCompany' --delete-messages  # Trash single-label messages, then delete labels" >&2
     exit 1
 }
 
@@ -41,15 +43,20 @@ if ! command -v gog &>/dev/null; then
     exit 1
 fi
 
-if ! command -v gam &>/dev/null; then
-    echo "Error: GAM (Google Apps Manager) not found." >&2
-    echo "Install via: https://github.com/GAM-team/GAM" >&2
-    echo "Or use Homebrew (if available): brew install gam" >&2
+if ! command -v python3 &>/dev/null; then
+    echo "Error: python3 not found." >&2
     exit 1
 fi
 
 if ! command -v jq &>/dev/null; then
     echo "Error: jq not found. Install via: brew install jq" >&2
+    exit 1
+fi
+
+# Check Python dependencies
+if ! python3 -c "from google.oauth2.credentials import Credentials; from googleapiclient.discovery import build" 2>/dev/null; then
+    echo "Error: Missing Python packages. Install via:" >&2
+    echo "  pip install google-auth google-api-python-client" >&2
     exit 1
 fi
 
@@ -94,18 +101,19 @@ echo ""
 # --- Step 1: Find all matching labels (target + sublabels) ---
 echo "[1/3] Finding matching labels..."
 
-all_labels=$(gog gmail labels list --account "$ACCOUNT" --plain 2>/dev/null \
-    | tail -n +2 \
-    | cut -f2)
+all_labels_tsv=$(gog gmail labels list --account "$ACCOUNT" --plain 2>/dev/null \
+    | tail -n +2)
 
 matching_labels=()
-while IFS= read -r name; do
-    [[ -z "$name" ]] && continue
-    # Match exact label or sublabels (label/*)
-    if [[ "$name" == "$LABEL" || "$name" == "$LABEL/"* ]]; then
-        matching_labels+=("$name")
+declare -A label_ids
+
+while IFS=$'\t' read -r label_id label_name label_type; do
+    [[ -z "$label_name" ]] && continue
+    if [[ "$label_name" == "$LABEL" || "$label_name" == "$LABEL/"* ]]; then
+        matching_labels+=("$label_name")
+        label_ids["$label_name"]="$label_id"
     fi
-done <<< "$all_labels"
+done <<< "$all_labels_tsv"
 
 if [[ ${#matching_labels[@]} -eq 0 ]]; then
     echo "No labels found matching '${LABEL}' or '${LABEL}/*'"
@@ -114,20 +122,19 @@ fi
 
 echo "Found ${#matching_labels[@]} label(s):"
 for lbl in "${matching_labels[@]}"; do
-    echo "  - ${lbl}"
+    echo "  - ${lbl} (${label_ids[$lbl]})"
 done
 echo ""
 
-# --- Step 2: Optionally delete single-label messages ---
+# --- Step 2: Optionally trash single-label messages ---
 if [[ "$DELETE_MESSAGES" == true ]]; then
-    echo "[2/3] Identifying and deleting single-label messages..."
+    echo "[2/3] Identifying and trashing single-label messages..."
 
     total_deleted=0
 
     for lbl in "${matching_labels[@]}"; do
         echo "  Processing label: ${lbl}"
 
-        # Search for all messages with this label
         messages=$(gog gmail messages search "label:\"${lbl}\"" \
             --account "$ACCOUNT" \
             --max 500 \
@@ -138,30 +145,22 @@ if [[ "$DELETE_MESSAGES" == true ]]; then
             continue
         fi
 
-        # Process each message
         count=0
         while IFS= read -r msg_id; do
             [[ -z "$msg_id" ]] && continue
 
-            # Get full message details to check all labels
             msg_data=$(gog gmail get "$msg_id" \
                 --account "$ACCOUNT" \
                 --format metadata \
                 --json 2>/dev/null || echo "{}")
 
-            # Extract all labels for this message
-            msg_labels=$(echo "$msg_data" | jq -r '.payload.headers[] | select(.name == "X-Gmail-Labels") | .value' 2>/dev/null || echo "")
+            msg_labels=$(echo "$msg_data" | jq -r '.labelIds[]?' 2>/dev/null | tr '\n' ',' || echo "")
 
-            if [[ -z "$msg_labels" ]]; then
-                # Fallback: get labels from labelIds field
-                msg_labels=$(echo "$msg_data" | jq -r '.labelIds[]?' 2>/dev/null | tr '\n' ',' || echo "")
-            fi
-
-            # Count non-system user labels
-            user_label_count=0
+            # Count non-system, non-target user labels
+            other_user_labels=0
             IFS=',' read -ra label_array <<< "$msg_labels"
             for label in "${label_array[@]}"; do
-                label=$(echo "$label" | xargs) # trim whitespace
+                label=$(echo "$label" | xargs)
                 [[ -z "$label" ]] && continue
 
                 # Skip system labels
@@ -169,12 +168,22 @@ if [[ "$DELETE_MESSAGES" == true ]]; then
                     continue
                 fi
 
-                # This is a user label
-                ((user_label_count++))
+                # Skip labels that are part of our deletion target
+                is_target=false
+                for target_lbl in "${matching_labels[@]}"; do
+                    if [[ "$label" == "${label_ids[$target_lbl]}" ]]; then
+                        is_target=true
+                        break
+                    fi
+                done
+
+                if [[ "$is_target" == false ]]; then
+                    ((other_user_labels++))
+                fi
             done
 
-            # If this message has only ONE user label (our target label), delete it
-            if [[ $user_label_count -eq 1 ]]; then
+            # Trash if this message has no other user labels
+            if [[ $other_user_labels -eq 0 ]]; then
                 gog gmail trash "$msg_id" --account "$ACCOUNT" &>/dev/null
                 ((count++))
                 ((total_deleted++))
@@ -182,38 +191,115 @@ if [[ "$DELETE_MESSAGES" == true ]]; then
         done < <(echo "$messages" | jq -r '.[].id' 2>/dev/null)
 
         if [[ $count -gt 0 ]]; then
-            echo "    Deleted $count single-label message(s)"
+            echo "    Trashed $count single-label message(s)"
+        else
+            echo "    No single-label messages to trash"
         fi
     done
 
     echo ""
-    echo "Total messages deleted: $total_deleted"
+    echo "Total messages trashed: $total_deleted"
     echo ""
 else
     echo "[2/3] Skipping message deletion (--delete-messages not specified)"
     echo ""
 fi
 
-# --- Step 3: Delete the labels using GAM ---
-echo "[3/3] Deleting labels using GAM..."
+# --- Step 3: Delete the labels via Gmail API (Python) ---
+echo "[3/3] Deleting labels via Gmail API..."
 
-deleted_count=0
-for lbl in "${matching_labels[@]}"; do
-    echo "  Deleting: ${lbl}"
+# Export gog token temporarily
+TOKEN_FILE=$(mktemp /tmp/gog_token_XXXXXX.json)
+trap "rm -f '$TOKEN_FILE'" EXIT
 
-    # Use GAM to delete the label
-    if gam user "$ACCOUNT" delete label "$lbl" 2>&1 | grep -qi "deleted\|removed\|success"; then
-        ((deleted_count++))
+gog auth tokens export "$ACCOUNT" --out "$TOKEN_FILE" 2>/dev/null
+
+# Read gog client credentials
+GOG_CREDS_DIR="${HOME}/Library/Application Support/gogcli"
+if [[ ! -f "$GOG_CREDS_DIR/credentials.json" ]]; then
+    # Try Linux path
+    GOG_CREDS_DIR="${HOME}/.config/gogcli"
+fi
+
+if [[ ! -f "$GOG_CREDS_DIR/credentials.json" ]]; then
+    echo "Error: Cannot find gog credentials. Expected at:" >&2
+    echo "  ~/Library/Application Support/gogcli/credentials.json (macOS)" >&2
+    echo "  ~/.config/gogcli/credentials.json (Linux)" >&2
+    exit 1
+fi
+
+# Build label ID list for Python (children first, parent last)
+LABEL_IDS_JSON="["
+first=true
+# Sort: longer names (deeper children) first
+IFS=$'\n' sorted_labels=($(for lbl in "${matching_labels[@]}"; do echo "$lbl"; done | awk '{print length, $0}' | sort -rn | cut -d' ' -f2-))
+for lbl in "${sorted_labels[@]}"; do
+    if [[ "$first" == true ]]; then
+        first=false
     else
-        echo "    Warning: Failed to delete '${lbl}'" >&2
+        LABEL_IDS_JSON+=","
     fi
+    LABEL_IDS_JSON+="{\"id\":\"${label_ids[$lbl]}\",\"name\":\"$lbl\"}"
 done
+LABEL_IDS_JSON+="]"
+
+# Run Python to delete labels
+result=$(python3 - "$TOKEN_FILE" "$GOG_CREDS_DIR/credentials.json" "$LABEL_IDS_JSON" << 'PYEOF'
+import json, sys
+
+token_file = sys.argv[1]
+creds_file = sys.argv[2]
+labels_json = sys.argv[3]
+
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+
+with open(creds_file) as f:
+    client = json.load(f)
+with open(token_file) as f:
+    token = json.load(f)
+
+creds = Credentials(
+    token=None,
+    refresh_token=token["refresh_token"],
+    token_uri="https://oauth2.googleapis.com/token",
+    client_id=client["client_id"],
+    client_secret=client["client_secret"],
+)
+
+service = build("gmail", "v1", credentials=creds)
+labels = json.loads(labels_json)
+
+deleted = 0
+failed = 0
+for label in labels:
+    try:
+        service.users().labels().delete(userId="me", id=label["id"]).execute()
+        print(f"  Deleted: {label['name']}")
+        deleted += 1
+    except Exception as e:
+        print(f"  FAILED: {label['name']} -- {e}")
+        failed += 1
+
+print(f"\nDELETED={deleted}")
+print(f"FAILED={failed}")
+PYEOF
+)
+
+echo "$result"
+
+# Parse counts from Python output
+deleted_count=$(echo "$result" | grep "^DELETED=" | cut -d= -f2)
+failed_count=$(echo "$result" | grep "^FAILED=" | cut -d= -f2)
 
 echo ""
 echo "=== Summary ==="
-echo "Labels deleted: $deleted_count/${#matching_labels[@]}"
+echo "Labels deleted: ${deleted_count:-0}/${#matching_labels[@]}"
 if [[ "$DELETE_MESSAGES" == true ]]; then
-    echo "Messages deleted: $total_deleted"
+    echo "Messages trashed: $total_deleted"
+fi
+if [[ "${failed_count:-0}" -gt 0 ]]; then
+    echo "Labels failed: $failed_count"
 fi
 echo ""
 echo "Done!"

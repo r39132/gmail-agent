@@ -2,7 +2,7 @@
 name: gmail-agent
 description: "Gmail automation: summarize, labels, spam purge, filing, deletion"
 requires:
-  binaries: ["gog", "gam"]
+  binaries: ["gog"]
   env: ["GMAIL_ACCOUNT"]
 metadata:
   openclaw:
@@ -202,39 +202,7 @@ Label Cleanup Complete: Professional/Companies
 - Skipped: 13 messages (multi-label, left alone)
 ```
 
-## Capability 5: Delete Labels
-
-When the user asks to delete a specific label or label hierarchy (e.g., "delete the Custody label", "remove the Personal/Finance/Archive label"):
-
-### Step 1 — Identify the label ID
-
-First, search for the label:
-```bash
-gog gmail labels list --account "$GMAIL_ACCOUNT" --plain
-```
-
-Find the label ID that matches the user's request. The output format is:
-```
-ID                          NAME
-Label_xxxxxxxxxxxx          Personal/Finance/Archive
-```
-
-### Step 2 — Delete the label
-
-```bash
-gog gmail labels delete <label-id> --account "$GMAIL_ACCOUNT" --force
-```
-
-This removes the label definition. Messages that had only this label will remain in your account but become label-less (they'll retain other labels if they had them).
-
-Report the result:
-```
-✓ Deleted label: [label-name]
-```
-
-**Note:** Messages are NOT deleted — only the label itself is removed.
-
-## Capability 6: Move Messages to Label (Interactive Search)
+## Capability 5: Move Messages to Label (Interactive Search)
 
 When the user wants to move messages to a folder/label using keyword search (e.g., "move these emails to the Receipts folder", "file this in Travel", "move to label matching 'walmart'"), use this interactive workflow.
 
@@ -374,24 +342,11 @@ User: no
 Agent: Operation complete. Messages are now filed under Personal/Receipts/Walmart/2024.
 ```
 
-## Capability 6: Delete Labels (via GAM)
+## Capability 6: Delete Labels (and optionally messages)
 
 When the user wants to delete a Gmail label and all its sublabels (e.g., "delete my Professional/OldCompany label", "remove the Travel/2020 folder and all subfolders").
 
 **CRITICAL: This is a destructive operation. You MUST follow the confirmation workflow exactly.**
-
-### Prerequisites
-
-This capability requires **GAM (Google Apps Manager)** to be installed. If it's not available:
-
-```bash
-# Check if GAM is installed
-which gam
-
-# If not found, inform user:
-"GAM (Google Apps Manager) is required for label deletion but is not installed.
-Install it via: https://github.com/GAM-team/GAM"
-```
 
 ### Step 1 — Confirm label deletion intent
 
@@ -402,39 +357,19 @@ When user requests label deletion, first confirm what they want to delete:
 > Before proceeding, do you also want to delete the **messages** that have this label?"
 
 **Important:**
-- If they say **yes**: Messages with ONLY this label (single-label messages) will be deleted. Multi-label messages will be preserved with their other labels intact.
+- If they say **yes**: Messages with ONLY this label (single-label messages) will be trashed. Multi-label messages will be preserved with their other labels intact.
 - If they say **no**: Only the labels will be removed. All messages will be preserved (they'll just lose these labels).
 
-### Step 2 — Find matching labels
-
-```bash
-bash skills/gmail-agent/bins/gmail-delete-labels.sh "<label-name>" "$GMAIL_ACCOUNT"
-```
-
-This will show all labels that match (the target label and all sublabels).
-
-Present the list to the user:
-
-```
-Found these labels to delete:
-- Professional/OldCompany
-- Professional/OldCompany/HR
-- Professional/OldCompany/Projects
-- Professional/OldCompany/Projects/2020
-
-Total: 4 labels
-```
-
-### Step 3 — Final confirmation
+### Step 2 — Final confirmation
 
 Ask for explicit confirmation before proceeding:
 
-> "Ready to delete **4 label(s)** [and X single-label messages]?
+> "Ready to delete the label **[label-name]** and all sublabels [and trash single-label messages]?
 > Type 'DELETE' to confirm, or 'cancel' to abort."
 
 **DO NOT proceed unless user types exactly 'DELETE'.**
 
-### Step 4 — Execute deletion
+### Step 3 — Execute deletion
 
 Based on user's earlier choice about messages:
 
@@ -448,36 +383,41 @@ bash skills/gmail-agent/bins/gmail-delete-labels.sh "<label-name>" --delete-mess
 bash skills/gmail-agent/bins/gmail-delete-labels.sh "<label-name>" "$GMAIL_ACCOUNT"
 ```
 
-### Step 5 — Report results
+The script will:
+1. Find all matching labels (target + sublabels)
+2. Optionally trash single-label messages (if --delete-messages)
+3. Delete the label definitions via Gmail API (children first, parent last)
+
+### Step 4 — Report results
 
 Parse the script output and report:
 
 ```
 Label Deletion Complete
 
-✓ Labels deleted: 4/4
-  - Professional/OldCompany
+Labels deleted: 4/4
   - Professional/OldCompany/HR
   - Professional/OldCompany/Projects
   - Professional/OldCompany/Projects/2020
+  - Professional/OldCompany
 
 [If --delete-messages was used:]
-✓ Messages deleted: 12 (single-label messages only)
-✓ Messages preserved: 8 (had other labels)
+Messages trashed: 12 (single-label messages only)
 ```
 
 ### Safety Notes
 
-- **This operation is irreversible** — deleted labels and messages cannot be recovered
-- Only **single-label messages** are deleted (when --delete-messages is used)
-- Multi-label messages are NEVER deleted — they simply lose the target label
+- **This operation is irreversible** — deleted labels cannot be recovered
+- Trashed messages go to Gmail Trash (recoverable for 30 days)
+- Only **single-label messages** are trashed (when --delete-messages is used)
+- Multi-label messages are NEVER trashed — they simply lose the target label
 - System labels (INBOX, SENT, etc.) don't count when determining "single-label"
 
 ### Error Handling
 
-- If GAM is not installed, inform user and provide installation link
-- If label doesn't exist, report: "Label '[label-name]' not found"
+- If label doesn't exist, report: "No labels found matching '[label-name]'"
 - If user cancels at any confirmation step, respond: "Label deletion cancelled"
+- If Python dependencies are missing, report the install command
 
 ### Example Complete Workflow
 
@@ -487,20 +427,12 @@ User: Delete my Professional/OldCompany label and everything under it
 Agent: I'll delete the label **Professional/OldCompany** and all its sublabels. This action cannot be undone.
 
 Before proceeding, do you also want to delete the **messages** that have this label?
-- Yes: Delete single-label messages (messages with only this label)
+- Yes: Trash single-label messages (messages with only this label)
 - No: Keep all messages (just remove the labels)
 
 User: Yes, delete them too
 
-Agent: [runs search]
-Found these labels to delete:
-- Professional/OldCompany
-- Professional/OldCompany/HR
-- Professional/OldCompany/Projects
-
-Total: 3 labels
-
-Ready to delete **3 label(s)** and all single-label messages?
+Agent: Ready to delete **Professional/OldCompany** and all sublabels, and trash single-label messages?
 Type 'DELETE' to confirm, or 'cancel' to abort.
 
 User: DELETE
@@ -509,13 +441,12 @@ Agent: [executes deletion with --delete-messages]
 
 Label Deletion Complete
 
-✓ Labels deleted: 3/3
-  - Professional/OldCompany
+Labels deleted: 3/3
   - Professional/OldCompany/HR
   - Professional/OldCompany/Projects
+  - Professional/OldCompany
 
-✓ Messages deleted: 24 (single-label messages only)
-✓ Messages preserved: 5 (had other labels)
+Messages trashed: 24 (single-label messages only)
 ```
 
 ## Scheduled Daily Run
