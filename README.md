@@ -29,7 +29,8 @@ brew install jq bash          # macOS — Linux: apt-get install jq
 npm install -g gogcli
 
 # 2. Install GAM (for label deletion - optional)
-# See: https://github.com/GAM-team/GAM
+bash <(curl -s -S -L https://gam-shortn.appspot.com/gam-install)
+# Creates symlink: ln -sf ~/bin/gam7/gam ~/.local/bin/gam
 
 # 3. Authenticate with Google
 gog auth login
