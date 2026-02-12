@@ -58,7 +58,7 @@ The screenshot shows a WhatsApp conversation where I'm messaging myself. **Mr. K
 |---|---|
 | **Inbox summary** | Lists unread messages with sender, subject, and date. Groups by sender when count > 20. |
 | **Folder structure** | Tree view of all Gmail labels with total and unread counts. |
-| **Label audit & cleanup** | Inspects a label hierarchy; identifies single-label messages safe to remove. |
+| **Label audit & cleanup** | Inspects a label hierarchy and removes labels from ALL messages. |
 | **Spam & trash purge** | Batch-removes all messages from SPAM and TRASH folders. |
 | **Move to label** | Search labels by keyword and move messages from inbox interactively. |
 | **Delete labels** | Delete a label and all sublabels with optional deletion of ALL messages. Automatically empties trash. |
@@ -126,7 +126,7 @@ View the full skill definition with all capabilities and trigger patterns.
 **Note:** Takes 1-2 minutes to run (fetches counts for each label individually).
 
 #### 3. Label Audit & Cleanup
-**What it does:** Inspects a label hierarchy; identifies single-label messages safe to remove vs. multi-label messages to preserve.
+**What it does:** Inspects a label hierarchy and removes labels from ALL messages.
 
 **Example triggers:**
 - "Audit my Professional/Companies label"
@@ -135,8 +135,8 @@ View the full skill definition with all capabilities and trigger patterns.
 - "Clean up my Travel/2023 label"
 
 **Two-step process:**
-1. **Audit (report only):** Shows counts of single vs. multi-label messages
-2. **Cleanup:** Removes labels from single-label messages (only after confirmation)
+1. **Audit (report only):** Shows message counts per label
+2. **Cleanup:** Removes labels from ALL messages (only after confirmation)
 
 #### 4. Spam & Trash Purge
 **What it does:** Batch-deletes everything in SPAM and TRASH folders with pagination handling.
@@ -265,7 +265,7 @@ bash skills/gmail-agent/bins/gmail-labels.sh
 # Audit a label (report only)
 bash skills/gmail-agent/bins/gmail-label-audit.sh "Professional/Companies"
 
-# Audit + clean up single-label messages
+# Audit + remove labels from ALL messages
 bash skills/gmail-agent/bins/gmail-label-audit.sh "Professional/Companies" --cleanup
 
 # Clean spam and trash
@@ -390,7 +390,7 @@ gmail-agent/
 │           ├── gmail-cleanup.sh       # Spam & trash purge script
 │           ├── gmail-delete-labels.sh      # Delete labels (and optionally messages) via Gmail API
 │           ├── gmail-delete-old-messages.sh # Delete messages older than date from label
-│           ├── gmail-label-audit.sh        # Label audit & selective cleanup
+│           ├── gmail-label-audit.sh        # Label audit & cleanup (removes ALL labels)
 │           ├── gmail-labels.sh             # Label tree with message counts
 │           └── gmail-move-to-label.sh      # Interactive move-to-label via keyword search
 └── setup/

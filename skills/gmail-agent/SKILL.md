@@ -153,12 +153,7 @@ When the user asks to audit, inspect, or clean up a specific label (e.g., "clean
 bash skills/gmail-agent/bins/gmail-label-audit.sh "<label-name>" "$GMAIL_ACCOUNT"
 ```
 
-This finds the target label and all sublabels beneath it, then for each message checks whether it has other user labels. It reports:
-
-- **SINGLE** — the message only has this label (no other user labels). Safe to clean up.
-- **MULTI** — the message has other user labels too. Will be left alone.
-
-System labels (INBOX, SENT, UNREAD, IMPORTANT, CATEGORY_*, STARRED, etc.) are ignored when determining single vs multi — only user-created labels count.
+This finds the target label and all sublabels beneath it, then counts how many messages have each label.
 
 ### Step 2 — Present the report
 
@@ -167,23 +162,20 @@ Show the output as a table:
 ```
 Label Audit: Professional/Companies
 
-LABEL                                               TOTAL   SINGLE    MULTI
-Professional/Companies                                 45       32       13
-Professional/Companies/Walmart                         20       18        2
-Professional/Companies/Walmart/Travel                   8        8        0
-Professional/Companies/Google                          17        6       11
+LABEL                                                         MESSAGES
+Professional/Companies                                              45
+Professional/Companies/Walmart                                      20
+Professional/Companies/Walmart/Travel                                8
+Professional/Companies/Google                                       17
 
-TOTAL (deduplicated)                                   45       32       13
-
-SINGLE = only this label hierarchy (safe to clean up)
-MULTI  = has other user labels (will be left alone)
+TOTAL (deduplicated)                                                45
 ```
 
 ### Step 3 — Ask the user
 
 After showing the report, ask:
 
-> "Found **32 single-label messages** that can be cleaned up (labels removed). **13 multi-label messages** will be left untouched. Would you like to proceed with cleanup?"
+> "Found **45 messages** with these labels. Would you like to remove these labels from ALL messages?"
 
 **Do NOT proceed without explicit confirmation.**
 
@@ -193,13 +185,12 @@ After showing the report, ask:
 bash skills/gmail-agent/bins/gmail-label-audit.sh "<label-name>" --cleanup "$GMAIL_ACCOUNT"
 ```
 
-This removes the target label (and sublabels) from single-label messages only. Multi-label messages are skipped entirely — no labels are removed from them.
+This removes the target label (and sublabels) from ALL messages that have these labels.
 
 Report the result:
 ```
 Label Cleanup Complete: Professional/Companies
-- Cleaned: 32 messages (labels removed)
-- Skipped: 13 messages (multi-label, left alone)
+- Cleaned: 45 messages (labels removed from ALL messages)
 ```
 
 ## Capability 5: Move Messages to Label (Interactive Search)
