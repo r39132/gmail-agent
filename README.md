@@ -58,11 +58,10 @@ The screenshot shows a WhatsApp conversation where I'm messaging myself. **Mr. K
 |---|---|
 | **Inbox summary** | Lists ALL inbox messages (read + unread). Marks unread with "**". Groups by sender when count > 20. |
 | **Folder structure** | Tree view of all Gmail labels with total and unread counts. |
-| **Label audit & cleanup** | Inspects a label hierarchy and removes labels from ALL messages. |
 | **Spam & trash purge** | Batch-removes all messages from SPAM and TRASH folders. |
 | **Move to label** | Search labels by keyword and move messages from inbox interactively. |
 | **Delete labels** | Delete a label and all sublabels with optional deletion of ALL messages. Automatically empties trash. |
-| **Delete old messages** | Delete messages older than a specific date from a label and sublabels. Automatically empties trash. |
+| **Delete old messages for label** | Delete old messages (by date) FOR a specific label and its sublabels. Automatically empties trash. |
 | **Daily digest** | Scheduled cron job: summarize + purge, delivered to WhatsApp (via OpenClaw). |
 
 ---
@@ -125,20 +124,7 @@ View the full skill definition with all capabilities and trigger patterns.
 
 **Note:** Takes 1-2 minutes to run (fetches counts for each label individually).
 
-#### 3. Label Audit & Cleanup
-**What it does:** Inspects a label hierarchy and removes labels from ALL messages.
-
-**Example triggers:**
-- "Audit my Professional/Companies label"
-- "How many emails are under Personal/Taxes?"
-- "Inspect the Receipts folder"
-- "Clean up my Travel/2023 label"
-
-**Two-step process:**
-1. **Audit (report only):** Shows message counts per label
-2. **Cleanup:** Removes labels from ALL messages (only after confirmation)
-
-#### 4. Spam & Trash Purge
+#### 3. Spam & Trash Purge
 **What it does:** Batch-deletes everything in SPAM and TRASH folders with pagination handling.
 
 **Example triggers:**
@@ -148,7 +134,7 @@ View the full skill definition with all capabilities and trigger patterns.
 - "Delete spam and trash"
 - "Clean up junk mail"
 
-#### 5. Move to Label (Interactive)
+#### 4. Move to Label (Interactive)
 **What it does:** Search labels by keyword and move messages from inbox through an interactive workflow.
 
 **Example triggers:**
@@ -165,7 +151,7 @@ View the full skill definition with all capabilities and trigger patterns.
 5. Moves messages
 6. Offers undo option
 
-#### 6. Delete Labels (Destructive)
+#### 5. Delete Labels (Destructive)
 **What it does:** Deletes a label and all its sublabels, with optional deletion of ALL messages.
 
 **Example triggers:**
@@ -182,20 +168,22 @@ View the full skill definition with all capabilities and trigger patterns.
 
 **Safety:** When deleting messages, ALL messages with the target labels are permanently deleted (trash is automatically emptied).
 
-#### 7. Delete Old Messages (By Date)
-**What it does:** Deletes all messages older than a specific date from a label and its sublabels.
+#### 6. Delete Old Messages for Label (By Date)
+**What it does:** Deletes all messages older than a specific date FOR a specified label and its sublabels. **Requires both a date AND a label.**
 
 **Example triggers:**
 - "Delete messages older than 01/01/2020 from Personal/Archive"
 - "Remove emails before 12/31/2019 from Work/Old"
+- "Clean up old messages in Professional/Learn before 10/01/2025"
 
 **Workflow:**
-1. Confirms date and label
-2. Searches all messages older than the date
+1. Confirms date and label (both required)
+2. Searches messages older than the date IN the specified label
 3. Trashes all matching messages
-4. Reports count
+4. Auto-empties trash
+5. Reports count
 
-#### 8. Daily Digest (Cron)
+#### 7. Daily Digest (Cron)
 **What it does:** Scheduled cron job that summarizes all unread emails, purges spam/trash, and delivers report via WhatsApp.
 
 **Trigger:** Automatic (runs on schedule, default: noon Pacific)
@@ -261,12 +249,6 @@ gog gmail messages search "is:unread -in:spam -in:trash" --account "$GMAIL_ACCOU
 
 # Show folder structure with message counts
 bash skills/gmail-agent/bins/gmail-labels.sh
-
-# Audit a label (report only)
-bash skills/gmail-agent/bins/gmail-label-audit.sh "Professional/Companies"
-
-# Audit + remove labels from ALL messages
-bash skills/gmail-agent/bins/gmail-label-audit.sh "Professional/Companies" --cleanup
 
 # Clean spam and trash
 bash skills/gmail-agent/bins/gmail-cleanup.sh
@@ -390,7 +372,6 @@ gmail-agent/
 │           ├── gmail-cleanup.sh       # Spam & trash purge script
 │           ├── gmail-delete-labels.sh      # Delete labels (and optionally messages) via Gmail API
 │           ├── gmail-delete-old-messages.sh # Delete messages older than date from label
-│           ├── gmail-label-audit.sh        # Label audit & cleanup (removes ALL labels)
 │           ├── gmail-labels.sh             # Label tree with message counts
 │           └── gmail-move-to-label.sh      # Interactive move-to-label via keyword search
 └── setup/
@@ -400,7 +381,7 @@ gmail-agent/
 
 | Layer | Files | Framework dependency |
 |---|---|---|
-| **Core logic** | `gmail-cleanup.sh`, `gmail-delete-labels.sh`, `gmail-label-audit.sh`, `gmail-labels.sh`, `gmail-move-to-label.sh`, `gog` CLI commands in SKILL.md | bash + gog + jq + python3 (google-auth, google-api-python-client) |
+| **Core logic** | `gmail-cleanup.sh`, `gmail-delete-labels.sh`, `gmail-labels.sh`, `gmail-move-to-label.sh`, `gog` CLI commands in SKILL.md | bash + gog + jq + python3 (google-auth, google-api-python-client) |
 | **Agent instructions** | `SKILL.md` | OpenClaw format, but readable by any LLM |
 | **OpenClaw integration** | `setup/*.sh` | OpenClaw CLI |
 

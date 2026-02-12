@@ -160,57 +160,7 @@ Gmail Cleanup Complete
 - Trash: <count> messages purged
 ```
 
-## Capability 4: Label Audit & Cleanup
-
-When the user asks to audit, inspect, or clean up a specific label (e.g., "clean up my Professional/Companies label", "how many emails are under Personal/Taxes?", "audit label X").
-
-### Step 1 — Run the audit (read-only)
-
-```bash
-bash skills/gmail-agent/bins/gmail-label-audit.sh "<label-name>" "$GMAIL_ACCOUNT"
-```
-
-This finds the target label and all sublabels beneath it, then counts how many messages have each label.
-
-### Step 2 — Present the report
-
-Show the output as a table:
-
-```
-Label Audit: Professional/Companies
-
-LABEL                                                         MESSAGES
-Professional/Companies                                              45
-Professional/Companies/Walmart                                      20
-Professional/Companies/Walmart/Travel                                8
-Professional/Companies/Google                                       17
-
-TOTAL (deduplicated)                                                45
-```
-
-### Step 3 — Ask the user
-
-After showing the report, ask:
-
-> "Found **45 messages** with these labels. Would you like to remove these labels from ALL messages?"
-
-**Do NOT proceed without explicit confirmation.**
-
-### Step 4 — Run cleanup (only after user confirms)
-
-```bash
-bash skills/gmail-agent/bins/gmail-label-audit.sh "<label-name>" --cleanup "$GMAIL_ACCOUNT"
-```
-
-This removes the target label (and sublabels) from ALL messages that have these labels.
-
-Report the result:
-```
-Label Cleanup Complete: Professional/Companies
-- Cleaned: 45 messages (labels removed from ALL messages)
-```
-
-## Capability 5: Move Messages to Label (Interactive Search)
+## Capability 4: Move Messages to Label (Interactive Search)
 
 When the user wants to move messages to a folder/label using keyword search (e.g., "move these emails to the Receipts folder", "file this in Travel", "move to label matching 'walmart'"), use this interactive workflow.
 
@@ -350,7 +300,7 @@ User: no
 Agent: Operation complete. Messages are now filed under Personal/Receipts/Walmart/2024.
 ```
 
-## Capability 6: Delete Labels (and optionally messages)
+## Capability 5: Delete Labels (and optionally messages)
 
 When the user wants to delete a Gmail label and all its sublabels (e.g., "delete my Professional/OldCompany label", "remove the Travel/2020 folder and all subfolders").
 
@@ -457,9 +407,9 @@ Labels deleted: 3/3
 Messages trashed: 24
 ```
 
-## Capability 7: Delete Old Messages by Date
+## Capability 6: Delete Old Messages for Label (By Date)
 
-When the user wants to delete old messages from a specific label based on date (e.g., "delete messages older than 01/01/2020 from Personal/Archive").
+When the user wants to delete old messages FOR a specific label based on date. **Requires both a date AND a label.** (e.g., "delete messages older than 01/01/2020 from Personal/Archive").
 
 ### Step 1 — Confirm deletion intent
 
