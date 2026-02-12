@@ -5,7 +5,7 @@
 # Usage: gmail-delete-labels.sh <label-name> [--delete-messages] [account-email]
 #
 # This script performs a two-phase deletion:
-# 1. Optional: Trash messages where the target label (or sublabels) is the ONLY user label
+# 1. Optional: Trash ALL messages with the target label (or sublabels)
 # 2. Delete the label(s) via Gmail API (using gog OAuth credentials + Python)
 #
 # Requirements:
@@ -21,12 +21,12 @@ usage() {
     echo "Usage: $0 <label-name> [--delete-messages] [account-email]" >&2
     echo "" >&2
     echo "  label-name         The Gmail label to delete (e.g., 'Professional/OldCompany')" >&2
-    echo "  --delete-messages  Also trash messages with only this label (single-label messages)" >&2
+    echo "  --delete-messages  Also trash ALL messages with this label" >&2
     echo "  account            Gmail address (defaults to \$GMAIL_ACCOUNT)" >&2
     echo "" >&2
     echo "Examples:" >&2
     echo "  $0 'Professional/OldCompany'                    # Delete labels only" >&2
-    echo "  $0 'Professional/OldCompany' --delete-messages  # Trash single-label messages, then delete labels" >&2
+    echo "  $0 'Professional/OldCompany' --delete-messages  # Trash ALL messages, then delete labels" >&2
     exit 1
 }
 
@@ -89,9 +89,6 @@ if [[ -z "$ACCOUNT" ]]; then
     exit 1
 fi
 
-# --- System labels to ignore when determining "single-label" ---
-SYSTEM_LABELS="INBOX|SENT|DRAFT|TRASH|SPAM|CHAT|STARRED|IMPORTANT|UNREAD|YELLOW_STAR|CATEGORY_PERSONAL|CATEGORY_SOCIAL|CATEGORY_PROMOTIONS|CATEGORY_UPDATES|CATEGORY_FORUMS"
-
 echo "=== Gmail Label Deletion ==="
 echo "Label: ${LABEL}"
 echo "Account: ${ACCOUNT}"
@@ -126,9 +123,9 @@ for lbl in "${matching_labels[@]}"; do
 done
 echo ""
 
-# --- Step 2: Optionally trash single-label messages ---
+# --- Step 2: Optionally trash ALL messages ---
 if [[ "$DELETE_MESSAGES" == true ]]; then
-    echo "[2/3] Identifying and trashing single-label messages..."
+    echo "[2/3] Trashing ALL messages with these labels..."
 
     total_deleted=0
 
@@ -149,51 +146,15 @@ if [[ "$DELETE_MESSAGES" == true ]]; then
         while IFS= read -r msg_id; do
             [[ -z "$msg_id" ]] && continue
 
-            msg_data=$(gog gmail get "$msg_id" \
-                --account "$ACCOUNT" \
-                --format metadata \
-                --json 2>/dev/null || echo "{}")
-
-            msg_labels=$(echo "$msg_data" | jq -r '.labelIds[]?' 2>/dev/null | tr '\n' ',' || echo "")
-
-            # Count non-system, non-target user labels
-            other_user_labels=0
-            IFS=',' read -ra label_array <<< "$msg_labels"
-            for label in "${label_array[@]}"; do
-                label=$(echo "$label" | xargs)
-                [[ -z "$label" ]] && continue
-
-                # Skip system labels
-                if echo "$label" | grep -qE "^(${SYSTEM_LABELS})$"; then
-                    continue
-                fi
-
-                # Skip labels that are part of our deletion target
-                is_target=false
-                for target_lbl in "${matching_labels[@]}"; do
-                    if [[ "$label" == "${label_ids[$target_lbl]}" ]]; then
-                        is_target=true
-                        break
-                    fi
-                done
-
-                if [[ "$is_target" == false ]]; then
-                    ((other_user_labels++))
-                fi
-            done
-
-            # Trash if this message has no other user labels
-            if [[ $other_user_labels -eq 0 ]]; then
-                gog gmail trash "$msg_id" --account "$ACCOUNT" &>/dev/null
-                ((count++))
-                ((total_deleted++))
-            fi
+            gog gmail trash "$msg_id" --account "$ACCOUNT" &>/dev/null
+            ((count++))
+            ((total_deleted++))
         done < <(echo "$messages" | jq -r '.[].id' 2>/dev/null)
 
         if [[ $count -gt 0 ]]; then
-            echo "    Trashed $count single-label message(s)"
+            echo "    Trashed $count message(s)"
         else
-            echo "    No single-label messages to trash"
+            echo "    No messages to trash"
         fi
     done
 

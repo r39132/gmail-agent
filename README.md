@@ -61,7 +61,7 @@ The screenshot shows a WhatsApp conversation where I'm messaging myself. **Mr. K
 | **Label audit & cleanup** | Inspects a label hierarchy; identifies single-label messages safe to remove. |
 | **Spam & trash purge** | Batch-removes all messages from SPAM and TRASH folders. |
 | **Move to label** | Search labels by keyword and move messages from inbox interactively. |
-| **Delete labels** | Delete a label and all sublabels with optional message deletion (via Gmail API). |
+| **Delete labels** | Delete a label and all sublabels with optional deletion of ALL messages (via Gmail API). |
 | **Delete old messages** | Delete messages older than a specific date from a label and sublabels. |
 | **Daily digest** | Scheduled cron job: summarize + purge, delivered to WhatsApp (via OpenClaw). |
 
@@ -166,7 +166,7 @@ View the full skill definition with all capabilities and trigger patterns.
 6. Offers undo option
 
 #### 6. Delete Labels (Destructive)
-**What it does:** Deletes a label and all its sublabels, with optional deletion of single-label messages.
+**What it does:** Deletes a label and all its sublabels, with optional deletion of ALL messages.
 
 **Example triggers:**
 - "Delete my Professional/OldCompany label"
@@ -175,12 +175,12 @@ View the full skill definition with all capabilities and trigger patterns.
 
 **Interactive workflow:**
 1. Confirms label deletion intent
-2. Asks whether to also delete messages (only single-label messages)
+2. Asks whether to also delete messages (ALL messages with these labels)
 3. Shows all matching labels (target + sublabels)
 4. Requires explicit 'DELETE' confirmation
 5. Executes deletion and reports results
 
-**Safety:** Multi-label messages are never deleted, only single-label messages (when requested).
+**Safety:** When deleting messages, ALL messages with the target labels are trashed (even if they have other labels).
 
 #### 7. Delete Old Messages (By Date)
 **What it does:** Deletes all messages older than a specific date from a label and its sublabels.
@@ -287,7 +287,7 @@ bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --undo "Per
 # Delete a label and all sublabels (labels only, keep messages)
 bash skills/gmail-agent/bins/gmail-delete-labels.sh "Professional/OldCompany" "$GMAIL_ACCOUNT"
 
-# Delete a label and single-label messages
+# Delete a label and ALL messages
 bash skills/gmail-agent/bins/gmail-delete-labels.sh "Professional/OldCompany" --delete-messages "$GMAIL_ACCOUNT"
 
 # Delete messages older than a specific date

@@ -357,7 +357,7 @@ When user requests label deletion, first confirm what they want to delete:
 > Before proceeding, do you also want to delete the **messages** that have this label?"
 
 **Important:**
-- If they say **yes**: Messages with ONLY this label (single-label messages) will be trashed. Multi-label messages will be preserved with their other labels intact.
+- If they say **yes**: ALL messages with this label will be trashed (even if they have other labels).
 - If they say **no**: Only the labels will be removed. All messages will be preserved (they'll just lose these labels).
 
 ### Step 2 — Final confirmation
@@ -402,16 +402,14 @@ Labels deleted: 4/4
   - Professional/OldCompany
 
 [If --delete-messages was used:]
-Messages trashed: 12 (single-label messages only)
+Messages trashed: 12
 ```
 
 ### Safety Notes
 
 - **This operation is irreversible** — deleted labels cannot be recovered
 - Trashed messages go to Gmail Trash (recoverable for 30 days)
-- Only **single-label messages** are trashed (when --delete-messages is used)
-- Multi-label messages are NEVER trashed — they simply lose the target label
-- System labels (INBOX, SENT, etc.) don't count when determining "single-label"
+- When --delete-messages is used, ALL messages with these labels are trashed (even if they have other labels)
 
 ### Error Handling
 
@@ -427,12 +425,12 @@ User: Delete my Professional/OldCompany label and everything under it
 Agent: I'll delete the label **Professional/OldCompany** and all its sublabels. This action cannot be undone.
 
 Before proceeding, do you also want to delete the **messages** that have this label?
-- Yes: Trash single-label messages (messages with only this label)
+- Yes: Trash ALL messages with this label (even if they have other labels)
 - No: Keep all messages (just remove the labels)
 
 User: Yes, delete them too
 
-Agent: Ready to delete **Professional/OldCompany** and all sublabels, and trash single-label messages?
+Agent: Ready to delete **Professional/OldCompany** and all sublabels, and trash ALL messages?
 Type 'DELETE' to confirm, or 'cancel' to abort.
 
 User: DELETE
@@ -446,7 +444,7 @@ Labels deleted: 3/3
   - Professional/OldCompany/Projects
   - Professional/OldCompany
 
-Messages trashed: 24 (single-label messages only)
+Messages trashed: 24
 ```
 
 ## Capability 7: Delete Old Messages by Date
