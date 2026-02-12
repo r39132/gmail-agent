@@ -62,6 +62,7 @@ The screenshot shows a WhatsApp conversation where I'm messaging myself. **Mr. K
 | **Spam & trash purge** | Batch-removes all messages from SPAM and TRASH folders. |
 | **Move to label** | Search labels by keyword and move messages from inbox interactively. |
 | **Delete labels** | Delete a label and all sublabels with optional message deletion (via Gmail API). |
+| **Delete old messages** | Delete messages older than a specific date from a label and sublabels. |
 | **Daily digest** | Scheduled cron job: summarize + purge, delivered to WhatsApp (via OpenClaw). |
 
 ---
@@ -181,7 +182,20 @@ View the full skill definition with all capabilities and trigger patterns.
 
 **Safety:** Multi-label messages are never deleted, only single-label messages (when requested).
 
-#### 7. Daily Digest (Cron)
+#### 7. Delete Old Messages (By Date)
+**What it does:** Deletes all messages older than a specific date from a label and its sublabels.
+
+**Example triggers:**
+- "Delete messages older than 01/01/2020 from Personal/Archive"
+- "Remove emails before 12/31/2019 from Work/Old"
+
+**Workflow:**
+1. Confirms date and label
+2. Searches all messages older than the date
+3. Trashes all matching messages
+4. Reports count
+
+#### 8. Daily Digest (Cron)
 **What it does:** Scheduled cron job that summarizes all unread emails, purges spam/trash, and delivers report via WhatsApp.
 
 **Trigger:** Automatic (runs on schedule, default: noon Pacific)
@@ -275,6 +289,9 @@ bash skills/gmail-agent/bins/gmail-delete-labels.sh "Professional/OldCompany" "$
 
 # Delete a label and single-label messages
 bash skills/gmail-agent/bins/gmail-delete-labels.sh "Professional/OldCompany" --delete-messages "$GMAIL_ACCOUNT"
+
+# Delete messages older than a specific date
+bash skills/gmail-agent/bins/gmail-delete-old-messages.sh "Personal/Archive" "01/01/2020" "$GMAIL_ACCOUNT"
 ```
 
 ### With OpenClaw
@@ -371,10 +388,11 @@ gmail-agent/
 │       ├── SKILL.md                   # Agent skill definition (OpenClaw + general)
 │       └── bins/
 │           ├── gmail-cleanup.sh       # Spam & trash purge script
-│           ├── gmail-delete-labels.sh # Delete labels (and optionally messages) via Gmail API
-│           ├── gmail-label-audit.sh   # Label audit & selective cleanup
-│           ├── gmail-labels.sh        # Label tree with message counts
-│           └── gmail-move-to-label.sh # Interactive move-to-label via keyword search
+│           ├── gmail-delete-labels.sh      # Delete labels (and optionally messages) via Gmail API
+│           ├── gmail-delete-old-messages.sh # Delete messages older than date from label
+│           ├── gmail-label-audit.sh        # Label audit & selective cleanup
+│           ├── gmail-labels.sh             # Label tree with message counts
+│           └── gmail-move-to-label.sh      # Interactive move-to-label via keyword search
 └── setup/
     ├── install-skill.sh               # Symlink skill into OpenClaw workspace
     └── register-cron-jobs.sh          # Register cron jobs via OpenClaw CLI

@@ -449,6 +449,61 @@ Labels deleted: 3/3
 Messages trashed: 24 (single-label messages only)
 ```
 
+## Capability 7: Delete Old Messages by Date
+
+When the user wants to delete old messages from a specific label based on date (e.g., "delete messages older than 01/01/2020 from Personal/Archive").
+
+### Step 1 — Confirm deletion intent
+
+When user requests date-based deletion, confirm the details:
+
+> "I'll delete all messages older than **[date]** from **[label-name]** and all its sublabels. This action cannot be undone.
+>
+> Type 'DELETE' to confirm, or 'cancel' to abort."
+
+### Step 2 — Execute deletion
+
+```bash
+bash skills/gmail-agent/bins/gmail-delete-old-messages.sh "<label-name>" "<MM/DD/YYYY>" "$GMAIL_ACCOUNT"
+```
+
+The script will:
+1. Find all matching labels (target + sublabels)
+2. Search for messages older than the specified date
+3. Trash all matching messages
+
+### Step 3 — Report results
+
+Parse the script output and report:
+
+```
+Old Messages Deleted
+
+Messages trashed: 245
+- From label: Personal/Archive and sublabels
+- Before date: 01/01/2020
+```
+
+### Example Workflow
+
+```
+User: Delete messages older than 01/01/2020 from Personal/Archive
+
+Agent: I'll delete all messages older than **01/01/2020** from **Personal/Archive** and all its sublabels. This action cannot be undone.
+
+Type 'DELETE' to confirm, or 'cancel' to abort.
+
+User: DELETE
+
+Agent: [executes deletion]
+
+Old Messages Deleted
+
+Messages trashed: 245
+- From label: Personal/Archive and sublabels
+- Before date: 01/01/2020
+```
+
 ## Scheduled Daily Run
 
 When triggered by the daily cron job, perform both capabilities in order:
