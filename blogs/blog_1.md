@@ -161,7 +161,13 @@ The project is open source under the MIT license: [github.com/r39132/gmail-agent
 
 ## What's Next?
 
-- **Search for destination folder by keyword** — This goes back to the label navigation problem I mentioned at the start. I want to type a keyword or phrase into WhatsApp and have the agent find the best-matching label via near-match, even across my deeply nested folder hierarchy. No more scrolling through hundreds of labels in the Gmail app or waiting for a laptop — just "move this to Walmart" and the agent figures out the right label.
+The label navigation feature is now implemented! You can move messages to folders by typing keywords into WhatsApp. The agent searches your label hierarchy, shows matches, lets you select messages from your inbox, and moves them to the target label — all without opening the Gmail app.
+
+Future enhancements on the roadmap:
+
+- **Smart categorization** — use an LLM to classify messages by urgency and topic automatically
+- **Auto-archival rules** — define rules in a config file for messages that should be auto-archived after N days
+- **Bulk label operations** — apply or remove labels from multiple messages based on search criteria
 
 ---
 

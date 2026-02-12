@@ -1,6 +1,6 @@
 ---
 name: gmail-agent
-description: Summarize unread Gmail, show folder structure, audit/clean labels, and purge spam/trash
+description: "Gmail automation: summarize, labels, spam purge, filing"
 requires:
   binaries: ["gog"]
   env: ["GMAIL_ACCOUNT"]
@@ -21,6 +21,8 @@ Activate this skill when the user asks about any of the following:
 - Their folder structure, labels, or label counts
 - Auditing, inspecting, or cleaning up a specific label or label hierarchy
 - Cleaning spam or trash
+- Moving or filing messages to a specific folder/label
+- Finding a label by keyword and moving messages to it
 - Gmail maintenance or cleanup
 
 ## Configuration
@@ -197,6 +199,146 @@ Report the result:
 Label Cleanup Complete: Professional/Companies
 - Cleaned: 32 messages (labels removed)
 - Skipped: 13 messages (multi-label, left alone)
+```
+
+## Capability 5: Move Messages to Label (Interactive Search)
+
+When the user wants to move messages to a folder/label using keyword search (e.g., "move these emails to the Receipts folder", "file this in Travel", "move to label matching 'walmart'"), use this interactive workflow.
+
+**This is a multi-step interactive process. Follow each step carefully and wait for user input before proceeding.**
+
+### Step 1 — Ask for search keywords
+
+Ask the user:
+> "What keywords should I search for to find the target label? (e.g., 'receipts', 'travel 2023', 'work project')"
+
+Wait for user response with keywords.
+
+### Step 2 — Search for matching labels
+
+```bash
+bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --search-labels "<keywords>"
+```
+
+The script outputs matching labels. Parse the output:
+- If `STEP: NO_MATCHES`, no labels found. Ask user to try different keywords or abandon.
+- If `STEP: LABEL_MATCHES`, show the list of matching labels to the user.
+
+Present the matches as a numbered list with two additional options:
+```
+Found these matching labels:
+1. Personal/Receipts/2023
+2. Personal/Receipts/2024
+3. Work/Receipts
+4. [new-search] - Enter new keywords
+5. [abandon] - Cancel operation
+
+Which label should I use? (enter number or option)
+```
+
+### Step 3 — List inbox messages
+
+Once user confirms they want to proceed (or if they already specified which messages to move), fetch the inbox list:
+
+```bash
+bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --list-inbox 50
+```
+
+The script outputs a TSV table with message details. Parse and present to the user:
+```
+Select messages to move (enter message IDs separated by spaces, or 'all' for all messages):
+
+ID              FROM                    SUBJECT                         DATE
+abc123def       john@example.com        Meeting notes                   2026-02-08
+ghi456jkl       receipts@store.com      Your receipt #12345             2026-02-07
+mno789pqr       newsletter@tech.com     Weekly digest                   2026-02-06
+```
+
+**Important:** Only show messages with the INBOX label. The script filters automatically.
+
+### Step 4 — User selects messages
+
+Wait for user to provide message IDs. They can:
+- Enter specific IDs: `abc123def ghi456jkl`
+- Enter `all` to select all displayed messages
+- Enter `abandon` to cancel
+
+### Step 5 — Confirm target label selection
+
+If user selected labels in Step 2, ask for confirmation:
+> "Moving [count] message(s) to [label-name]. Proceed? (yes/no)"
+
+If user hasn't selected a label yet, show the label matches from Step 2 again and ask them to choose.
+
+### Step 6 — Execute the move
+
+```bash
+bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --move "<target-label>" <msg-id-1> <msg-id-2> <msg-id-3>
+```
+
+The script will:
+- Add the target label to the messages
+- Remove the INBOX label (effectively moving them out of inbox)
+- Output confirmation with count
+
+Parse the output and confirm to the user:
+```
+✓ Moved [count] message(s) to [label-name]
+
+Would you like to undo this move? (yes/no)
+```
+
+### Step 7 — Offer undo option
+
+Wait for user response:
+- If **yes**, run the undo command:
+  ```bash
+  bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --undo "<target-label>" <msg-id-1> <msg-id-2> <msg-id-3>
+  ```
+  This restores messages to inbox and removes the target label.
+  
+- If **no** or **done**, complete the operation:
+  > "Operation complete. Messages are now filed under [label-name]."
+
+### Error Handling
+
+- If no labels match keywords: ask user to try different keywords or abandon
+- If inbox is empty: inform user and exit
+- If user-provides invalid message IDs: ask them to re-enter valid IDs from the list
+- At any point, if user says "abandon", "cancel", or "quit": exit the workflow gracefully
+
+### Example Complete Workflow
+
+```
+Agent: What keywords should I search for to find the target label?
+User: walmart receipts
+
+Agent: [runs search] Found these matching labels:
+1. Personal/Shopping/Walmart
+2. Personal/Receipts/Walmart/2024
+3. [new-search] - Enter new keywords
+4. [abandon] - Cancel
+
+User: 2
+
+Agent: [lists inbox messages]
+Select messages to move:
+ID         FROM                    SUBJECT
+abc123     receipts@walmart.com    Receipt #5678
+def456     store@walmart.com       Order confirmation
+
+User: abc123 def456
+
+Agent: Moving 2 message(s) to Personal/Receipts/Walmart/2024. Proceed? (yes/no)
+User: yes
+
+Agent: [executes move]
+✓ Moved 2 message(s) to Personal/Receipts/Walmart/2024
+Would you like to undo this move? (yes/no)
+
+User: no
+
+Agent: Operation complete. Messages are now filed under Personal/Receipts/Walmart/2024.
 ```
 
 ## Scheduled Daily Run

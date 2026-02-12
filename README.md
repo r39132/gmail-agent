@@ -15,7 +15,7 @@
 
 # Gmail Agent
 
-A CLI-driven Gmail agent that summarizes unread messages and purges spam/trash folders. Ships with an [OpenClaw](https://openclaw.ai) skill for chat-based and scheduled use, but the core scripts work standalone with **any agent framework** or directly from the command line.
+A CLI-driven Gmail agent that summarizes unread messages, purges spam/trash folders, and moves messages to labels via keyword search. Ships with an [OpenClaw](https://openclaw.ai) skill for chat-based and scheduled use, but the core scripts work standalone with **any agent framework** or directly from the command line.
 
 ---
 
@@ -60,7 +60,137 @@ The screenshot shows a WhatsApp conversation where I'm messaging myself. **Mr. K
 | **Folder structure** | Tree view of all Gmail labels with total and unread counts. |
 | **Label audit & cleanup** | Inspects a label hierarchy; identifies single-label messages safe to remove. |
 | **Spam & trash purge** | Batch-removes all messages from SPAM and TRASH folders. |
+| **Move to label** | Search labels by keyword and move messages from inbox interactively. |
 | **Daily digest** | Scheduled cron job: summarize + purge, delivered to WhatsApp (via OpenClaw). |
+
+---
+
+## Skills & Triggers
+
+### How Triggering Works
+
+**Gmail Agent uses semantic triggering, not exact phrases.** When using it through OpenClaw, Claude Desktop, or other LLM-based frameworks, the AI interprets your natural language request and routes to the appropriate skill based on meaning.
+
+**You can ask in many ways:**
+- "Check my email" → Inbox Summary
+- "What's new in my inbox?" → Inbox Summary  
+- "Summarize my mail" → Inbox Summary
+- "How many unread messages?" → Inbox Summary
+
+The agent understands intent, not just keywords.
+
+### Listing Available Skills
+
+**With OpenClaw:**
+```bash
+openclaw skills list | grep gmail
+```
+
+Shows installed Gmail Agent skills with their descriptions.
+
+**Checking skill details:**
+```bash
+cat skills/gmail-agent/SKILL.md
+```
+
+View the full skill definition with all capabilities and trigger patterns.
+
+### Available Skills & Example Triggers
+
+#### 1. Inbox Summary
+**What it does:** Lists unread messages with sender, subject, and date. Groups by sender when count > 20.
+
+**Example triggers:**
+- "Summarize my inbox"
+- "Check my email"
+- "What's new in my inbox?"
+- "Show me unread messages"
+- "Do I have any new emails?"
+
+**Mode options:**
+- **Inbox only (default):** Most requests without "all"
+- **All unread:** "Summarize ALL my emails", "Show me everything unread"
+
+#### 2. Folder Structure
+**What it does:** Tree view of all Gmail labels with total and unread counts.
+
+**Example triggers:**
+- "Show my folder structure"
+- "List my labels"
+- "How are my emails organized?"
+- "What labels do I have?"
+- "Show me my Gmail folders"
+
+**Note:** Takes 1-2 minutes to run (fetches counts for each label individually).
+
+#### 3. Label Audit & Cleanup
+**What it does:** Inspects a label hierarchy; identifies single-label messages safe to remove vs. multi-label messages to preserve.
+
+**Example triggers:**
+- "Audit my Professional/Companies label"
+- "How many emails are under Personal/Taxes?"
+- "Inspect the Receipts folder"
+- "Clean up my Travel/2023 label"
+
+**Two-step process:**
+1. **Audit (report only):** Shows counts of single vs. multi-label messages
+2. **Cleanup:** Removes labels from single-label messages (only after confirmation)
+
+#### 4. Spam & Trash Purge
+**What it does:** Batch-deletes everything in SPAM and TRASH folders with pagination handling.
+
+**Example triggers:**
+- "Clean my spam and trash"
+- "Empty spam folder"
+- "Purge trash"
+- "Delete spam and trash"
+- "Clean up junk mail"
+
+#### 5. Move to Label (Interactive)
+**What it does:** Search labels by keyword and move messages from inbox through an interactive workflow.
+
+**Example triggers:**
+- "Move messages to Receipts"
+- "File these emails in Travel"
+- "Move to Walmart folder"
+- "Organize inbox messages"
+
+**Interactive workflow:**
+1. Asks for search keywords
+2. Shows matching labels
+3. Lists inbox messages
+4. Confirms selection
+5. Moves messages
+6. Offers undo option
+
+#### 6. Daily Digest (Cron)
+**What it does:** Scheduled cron job that summarizes all unread emails, purges spam/trash, and delivers report via WhatsApp.
+
+**Trigger:** Automatic (runs on schedule, default: noon Pacific)
+
+**Manual trigger:**
+```bash
+openclaw cron run gmail-daily-noon
+```
+
+### Agent Response Format
+
+When using through OpenClaw or similar frameworks, the agent returns:
+- ✅ **Confirmation** of which skill was executed
+- 📊 **Results** (message counts, summaries, etc.)
+- 🔄 **Next actions** (if multi-step workflow)
+
+Example:
+```
+[Gmail Agent - Inbox Summary]
+Found 12 unread messages:
+
+From: john@example.com
+Subject: Meeting tomorrow
+...
+
+Skill executed: gmail-agent/inbox-summary
+```
 
 ---
 
@@ -108,6 +238,19 @@ bash skills/gmail-agent/bins/gmail-label-audit.sh "Professional/Companies" --cle
 
 # Clean spam and trash
 bash skills/gmail-agent/bins/gmail-cleanup.sh
+
+# Move messages to a label (interactive)
+# Step 1: Search for labels matching keywords
+bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --search-labels "receipts"
+
+# Step 2: List inbox messages
+bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --list-inbox
+
+# Step 3: Move selected messages to a label
+bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --move "Personal/Receipts" msg-id-1 msg-id-2
+
+# Step 4: Undo if needed
+bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --undo "Personal/Receipts" msg-id-1 msg-id-2
 ```
 
 ### With OpenClaw
@@ -135,6 +278,8 @@ Then message OpenClaw through any connected channel:
 - *"Audit my Professional/Companies label"*
 - *"Clean up the Personal/Taxes/2020 label"*
 - *"Clean my spam and trash"*
+- *"Move messages to Receipts folder"*
+- *"File these emails in Travel"*
 
 The cron job fires daily at noon Pacific (configurable in `.env`). It summarizes all unread emails, purges spam and trash, and delivers the report to WhatsApp.
 
@@ -202,7 +347,8 @@ gmail-agent/
 │       └── bins/
 │           ├── gmail-cleanup.sh       # Spam & trash purge script
 │           ├── gmail-label-audit.sh   # Label audit & selective cleanup
-│           └── gmail-labels.sh        # Label tree with message counts
+│           ├── gmail-labels.sh        # Label tree with message counts
+│           └── gmail-move-to-label.sh # Interactive move-to-label via keyword search
 └── setup/
     ├── install-skill.sh               # Symlink skill into OpenClaw workspace
     └── register-cron-jobs.sh          # Register cron jobs via OpenClaw CLI
@@ -210,7 +356,7 @@ gmail-agent/
 
 | Layer | Files | Framework dependency |
 |---|---|---|
-| **Core logic** | `gmail-cleanup.sh`, `gmail-label-audit.sh`, `gmail-labels.sh`, `gog` CLI commands in SKILL.md | None — just bash + gog + jq |
+| **Core logic** | `gmail-cleanup.sh`, `gmail-label-audit.sh`, `gmail-labels.sh`, `gmail-move-to-label.sh`, `gog` CLI commands in SKILL.md | None — just bash + gog + jq |
 | **Agent instructions** | `SKILL.md` | OpenClaw format, but readable by any LLM |
 | **OpenClaw integration** | `setup/*.sh` | OpenClaw CLI |
 
