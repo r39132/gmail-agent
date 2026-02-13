@@ -163,21 +163,46 @@ openclaw cron run gmail-daily-noon  # Manual trigger
 
 ## Architecture
 
-```mermaid
-%%{init: {'theme':'default', 'themeVariables': {'fontSize': '20px'}, 'flowchart': {'nodeSpacing': 50, 'rankSpacing': 80, 'padding': 20}}}%%
-flowchart LR
-    User["User(WhatsApp / CLI)"]
-    OC["OpenClawGateway"]
-    Skill["gmail-agentskill"]
-    Scripts["bins/shell scripts"]
-    GOG["gog CLI"]
-    Gmail["Gmail API"]
+Two paths to the Gmail API — through an agent framework, or directly from the CLI:
 
-    User --> OC --> Skill --> Scripts --> GOG --> Gmail
-    User -.->|"direct CLI"| Scripts
+```mermaid
+%%{init: {'theme':'default', 'themeVariables': {'fontSize':'16px'}}}%%
+flowchart TD
+    subgraph entry ["Entry Points"]
+        WA["📱 WhatsApp"]
+        CLI["💻 Terminal"]
+        Cron["⏰ Cron"]
+    end
+
+    subgraph agent ["Agent Layer (optional)"]
+        OC["OpenClaw Gateway"]
+        Skill["gmail-agent skill\n(SKILL.md)"]
+    end
+
+    subgraph core ["Core (bash + gog + jq)"]
+        Scripts["Shell Scripts\n(skills/gmail-agent/bins/)"]
+        GOG["gog CLI"]
+    end
+
+    subgraph google ["Google"]
+        API["Gmail API"]
+    end
+
+    WA --> OC --> Skill --> Scripts
+    Cron --> OC
+    CLI --> Scripts
+    Scripts --> GOG --> API
+    Scripts -.->|"label delete,\npermanent delete"| API
+
+    style entry fill:#f0f4ff,stroke:#94a3b8
+    style agent fill:#fefce8,stroke:#ca8a04
+    style core fill:#f0fdf4,stroke:#22c55e
+    style google fill:#fef2f2,stroke:#ef4444
 ```
 
-Bash scripts wrap [`gog` CLI](https://github.com/nicholasgasior/gog) → Framework-agnostic • Works with OpenClaw, LangChain, Claude Desktop, cron, or standalone
+**Key design decision:** every layer is optional except `core`. Strip away OpenClaw and you still have CLI tools. The agent layer adds chat routing (WhatsApp) and scheduling (cron) — but the scripts run independently with any framework that can exec shell commands.
+
+The dashed line shows where scripts call the Gmail API directly via Python (for label deletion and permanent message deletion) instead of going through `gog`, since `gog` doesn't expose those endpoints.
 
 ---
 
@@ -251,6 +276,8 @@ gmail-agent/
 │   ├── install-skill.sh              # OpenClaw skill installer
 │   └── register-cron-jobs.sh         # Cron registration
 ├── docs/SETUP.md                     # Full GCP/OAuth setup
+├── docs/openclaw-config-guide.md     # OpenClaw safe config checklist
+├── blogs/                            # Blog posts
 └── skills/gmail-agent/SKILL.md       # Agent skill definition
 ```
 
@@ -353,6 +380,12 @@ The full-scope authorization script requires an additional Python package:
 pip install google-auth-oauthlib
 ```
 </details>
+
+## Blog
+
+- [Managing Gmail from WhatsApp: An Agent-Driven Approach](blogs/blog_1.md) — Introduction and motivation
+- [From Cleanup to Full Inbox Control](blogs/blog_2.md) — New capabilities: move, delete, permanent delete, background tasks
+- [OpenClaw Has Rough Edges — Here's How to Avoid Them](blogs/blog_3.md) — Pitfalls, safe defaults, and a [configuration guide](docs/openclaw-config-guide.md)
 
 ## License
 
