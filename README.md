@@ -15,7 +15,7 @@
 
 # Gmail Agent
 
-A CLI-driven Gmail agent that summarizes unread messages, purges spam/trash folders, moves messages to labels via keyword search, and deletes labels with optional message cleanup. Ships with an [OpenClaw](https://openclaw.ai) skill for chat-based and scheduled use, but the core scripts work standalone with **any agent framework** or directly from the command line.
+A CLI-driven Gmail agent that summarizes unread messages, purges spam/trash folders, moves messages to labels via keyword search, deletes labels with optional message cleanup, and permanently deletes old messages by date. Ships with an [OpenClaw](https://openclaw.ai) skill for chat-based and scheduled use, but the core scripts work standalone with **any agent framework** or directly from the command line.
 
 ---
 
@@ -60,10 +60,12 @@ The screenshot shows a WhatsApp conversation where I'm messaging myself. **Mr. K
 | **Folder structure** | Tree view of all Gmail labels with total and unread counts. |
 | **Spam & trash purge** | Batch-removes all messages from SPAM and TRASH folders. |
 | **Move to label** | Search labels by keyword and move messages from inbox interactively. |
-| **Delete labels** | Delete a label and all sublabels with optional deletion of ALL messages. Automatically empties trash. |
-| **Delete old messages for label** | Delete old messages (by date) FOR a specific label and its sublabels. Automatically empties trash. |
+| **Delete labels** | Delete a label and all sublabels with optional trashing of ALL messages. Labels deleted via Gmail API (Python). |
+| **Delete old messages by date** | Delete messages older than a date from a label and its sublabels. Supports permanent delete with full-scope auth. |
+| **Full-scope authorization** | One-time OAuth setup for `https://mail.google.com/` scope, enabling permanent message deletion (instead of trash). |
 | **Background execution** | Run any task in background with WhatsApp progress updates every 30s and completion notifications. |
-| **Job status tracking** | Monitor all running/completed background jobs with duration and logs. |
+| **Job status tracking** | Monitor all running/completed background jobs with duration and logs (`~/.gmail-agent/jobs/`). |
+| **Convenience wrappers** | `gmail-bg` (auto-sources .env + runs background task) and `gmail-jobs` (check job status). |
 | **Daily digest** | Scheduled cron job: summarize + purge, delivered to WhatsApp (via OpenClaw). |
 
 ---
@@ -228,7 +230,7 @@ View the full skill definition with all capabilities and trigger patterns.
 6. Offers undo option
 
 #### 5. Delete Labels (Destructive)
-**What it does:** Deletes a label and all its sublabels, with optional deletion of ALL messages.
+**What it does:** Deletes a label and all its sublabels, with optional trashing of ALL messages. Labels are deleted via the Gmail API (Python).
 
 **Example triggers:**
 - "Delete my Professional/OldCompany label"
@@ -242,10 +244,10 @@ View the full skill definition with all capabilities and trigger patterns.
 4. Requires explicit 'DELETE' confirmation
 5. Executes deletion and reports results
 
-**Safety:** When deleting messages, ALL messages with the target labels are permanently deleted (trash is automatically emptied).
+**Note:** When deleting messages, they are trashed (auto-deleted by Gmail after 30 days).
 
-#### 6. Delete Old Messages for Label (By Date)
-**What it does:** Deletes all messages older than a specific date FOR a specified label and its sublabels. **Requires both a date AND a label.**
+#### 6. Delete Old Messages by Date (Destructive)
+**What it does:** Deletes all messages older than a specific date from a specified label and its sublabels. **Requires both a date AND a label.** Supports permanent delete with full-scope auth.
 
 **Example triggers:**
 - "Delete messages older than 01/01/2020 from Personal/Archive"
@@ -255,9 +257,24 @@ View the full skill definition with all capabilities and trigger patterns.
 **Workflow:**
 1. Confirms date and label (both required)
 2. Searches messages older than the date IN the specified label
-3. Trashes all matching messages
-4. Auto-empties trash
+3. Permanently deletes (with full-scope token) or trashes (without) all matching messages
+4. Loops until no more matches (handles Gmail index consistency)
 5. Reports count
+
+**Deletion mode:** If `~/.gmail-agent/full-scope-token.json` exists, messages are permanently deleted. Otherwise, they are trashed.
+
+#### 7. Full-Scope Authorization (One-Time Setup)
+**What it does:** Performs a one-time OAuth flow to grant the `https://mail.google.com/` scope, enabling permanent message deletion instead of trash.
+
+**Example triggers:**
+- "Enable permanent delete for Gmail"
+- "Set up full Gmail access"
+
+**What happens:**
+1. Opens a browser for Google OAuth consent
+2. Grants `https://mail.google.com/` scope (full Gmail access)
+3. Stores the token at `~/.gmail-agent/full-scope-token.json`
+4. Capability 6 will then use permanent delete instead of trash
 
 #### 7. Daily Digest (Cron)
 **What it does:** Scheduled cron job that summarizes all unread emails, purges spam/trash, and delivers report via WhatsApp.
@@ -324,10 +341,10 @@ gog gmail messages search "in:inbox" --account "$GMAIL_ACCOUNT" --max 50 --plain
 gog gmail messages search "is:unread -in:spam -in:trash" --account "$GMAIL_ACCOUNT" --max 50 --plain
 
 # Show folder structure with message counts
-bash skills/gmail-agent/bins/gmail-labels.sh
+bash skills/gmail-agent/bins/gmail-labels.sh "$GMAIL_ACCOUNT"
 
 # Clean spam and trash
-bash skills/gmail-agent/bins/gmail-cleanup.sh
+bash skills/gmail-agent/bins/gmail-cleanup.sh "$GMAIL_ACCOUNT"
 
 # Move messages to a label (interactive)
 # Step 1: Search for labels matching keywords
@@ -345,11 +362,27 @@ bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --undo "Per
 # Delete a label and all sublabels (labels only, keep messages)
 bash skills/gmail-agent/bins/gmail-delete-labels.sh "Professional/OldCompany" "$GMAIL_ACCOUNT"
 
-# Delete a label and ALL messages
+# Delete a label and ALL messages (trashes them)
 bash skills/gmail-agent/bins/gmail-delete-labels.sh "Professional/OldCompany" --delete-messages "$GMAIL_ACCOUNT"
 
-# Delete messages older than a specific date
+# Delete messages older than a specific date (trashes or permanently deletes)
 bash skills/gmail-agent/bins/gmail-delete-old-messages.sh "Personal/Archive" "01/01/2020" "$GMAIL_ACCOUNT"
+
+# Enable permanent delete (one-time OAuth setup)
+bash skills/gmail-agent/bins/gmail-auth-full-scope.sh "$GMAIL_ACCOUNT"
+```
+
+#### Convenience wrappers
+
+```bash
+# Run any task in background (auto-sources .env)
+bash skills/gmail-agent/bins/gmail-bg "Spam Cleanup" \
+    "bash skills/gmail-agent/bins/gmail-cleanup.sh '$GMAIL_ACCOUNT'"
+
+# Check background job status
+bash skills/gmail-agent/bins/gmail-jobs            # All jobs
+bash skills/gmail-agent/bins/gmail-jobs --running   # Running only
+bash skills/gmail-agent/bins/gmail-jobs --clean     # Remove old records
 ```
 
 ### With OpenClaw
@@ -438,6 +471,8 @@ gmail-agent/
 ├── .env.example                       # Template for environment variables
 ├── .gitignore                         # Excludes .env, credentials, OS artifacts
 ├── README.md                          # This file
+├── blogs/
+│   └── blog_1.md                      # Blog post about the project
 ├── docs/
 │   ├── SETUP.md                       # Full GCP/OAuth setup guide
 │   └── images/
@@ -445,12 +480,15 @@ gmail-agent/
 │   └── gmail-agent/
 │       ├── SKILL.md                   # Agent skill definition (OpenClaw + general)
 │       └── bins/
+│           ├── gmail-auth-full-scope.sh    # One-time OAuth for permanent delete scope
 │           ├── gmail-background-task.sh    # Background task runner with WhatsApp notifications
+│           ├── gmail-bg                    # Convenience wrapper: auto-sources .env + runs background task
 │           ├── gmail-bg-status.sh          # Status viewer for all background jobs
 │           ├── gmail-cleanup.sh            # Spam & trash purge script
 │           ├── gmail-daily-digest.sh       # Combined unread summary + cleanup for daily cron
 │           ├── gmail-delete-labels.sh      # Delete labels (and optionally messages) via Gmail API
-│           ├── gmail-delete-old-messages.sh # Delete messages older than date from label
+│           ├── gmail-delete-old-messages.sh # Delete messages older than date (supports permanent delete)
+│           ├── gmail-jobs                  # Convenience wrapper for gmail-bg-status.sh
 │           ├── gmail-labels.sh             # Label tree with message counts
 │           └── gmail-move-to-label.sh      # Interactive move-to-label via keyword search
 └── setup/
@@ -460,7 +498,9 @@ gmail-agent/
 
 | Layer | Files | Framework dependency |
 |---|---|---|
-| **Core logic** | `gmail-cleanup.sh`, `gmail-delete-labels.sh`, `gmail-labels.sh`, `gmail-move-to-label.sh`, `gog` CLI commands in SKILL.md | bash + gog + jq + python3 (google-auth, google-api-python-client) |
+| **Core logic** | `gmail-cleanup.sh`, `gmail-delete-labels.sh`, `gmail-delete-old-messages.sh`, `gmail-labels.sh`, `gmail-move-to-label.sh`, `gog` CLI commands in SKILL.md | bash + gog + jq + python3 (google-auth, google-api-python-client) |
+| **Full-scope auth** | `gmail-auth-full-scope.sh` | python3 (google-auth-oauthlib) |
+| **Background execution** | `gmail-background-task.sh`, `gmail-bg`, `gmail-bg-status.sh`, `gmail-jobs` | bash + OpenClaw (for WhatsApp notifications) |
 | **Agent instructions** | `SKILL.md` | OpenClaw format, but readable by any LLM |
 | **OpenClaw integration** | `setup/*.sh` | OpenClaw CLI |
 
@@ -473,6 +513,11 @@ gmail-agent/
 | `WHATSAPP_UPDATE_INTERVAL` | No | Seconds between status updates for background tasks (default: `30`) |
 | `CRON_TIMEZONE` | No | Timezone for scheduled runs (default: `America/Los_Angeles`) |
 | `CRON_SCHEDULE` | No | Cron expression (default: `0 12 * * *` = noon daily) |
+
+| File | Description |
+|---|---|
+| `~/.gmail-agent/full-scope-token.json` | Full-scope OAuth token for permanent message deletion (created by `gmail-auth-full-scope.sh`) |
+| `~/.gmail-agent/jobs/` | Job registry for background task tracking |
 
 ## Troubleshooting
 
@@ -525,6 +570,28 @@ pip install google-auth google-api-python-client
 ```
 
 The script also needs `gog` OAuth credentials (created during `gog auth login`).
+</details>
+
+<details>
+<summary>Messages are trashed instead of permanently deleted</summary>
+
+By default, delete operations trash messages (auto-deleted by Gmail after 30 days). To enable permanent deletion:
+
+```bash
+bash skills/gmail-agent/bins/gmail-auth-full-scope.sh "$GMAIL_ACCOUNT"
+```
+
+This performs a one-time OAuth flow for the `https://mail.google.com/` scope and stores the token at `~/.gmail-agent/full-scope-token.json`. Requires `pip install google-auth-oauthlib`.
+</details>
+
+<details>
+<summary>Full-scope auth fails with missing google-auth-oauthlib</summary>
+
+The full-scope authorization script requires an additional Python package:
+
+```bash
+pip install google-auth-oauthlib
+```
 </details>
 
 ## License

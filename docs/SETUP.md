@@ -10,9 +10,10 @@ Full setup instructions for gmail-agent: GCP project, OAuth credentials, CLI too
 - **[gog CLI](https://github.com/nicholasgasior/gog)** — Google API CLI tool
 - **[jq](https://jqlang.github.io/jq/)** — JSON processor
 
-### Optional tools (for label deletion)
+### Optional tools (for label deletion and message deletion via Gmail API)
 
 - **python3** with `google-auth` and `google-api-python-client` packages (`pip install google-auth google-api-python-client`)
+- **google-auth-oauthlib** — only needed for full-scope authorization (`pip install google-auth-oauthlib`)
 
 ### Platform-specific installation
 
@@ -54,15 +55,21 @@ npm install -g gogcli
 </details>
 
 <details>
-<summary>Python packages (Optional - for label deletion)</summary>
+<summary>Python packages (Optional - for label/message deletion via Gmail API)</summary>
 
-Label deletion uses the Gmail API directly via Python. Install the required packages:
+Label deletion and old message deletion use the Gmail API directly via Python. Install the required packages:
 
 ```bash
 pip install google-auth google-api-python-client
 ```
 
-No separate authentication is needed — the script reuses your existing `gog` OAuth credentials.
+No separate authentication is needed — the scripts reuse your existing `gog` OAuth credentials.
+
+For full-scope authorization (permanent delete), also install:
+
+```bash
+pip install google-auth-oauthlib
+```
 </details>
 
 ## 2. Create a GCP Project and Enable Gmail API
@@ -123,3 +130,18 @@ source .env
 ```
 
 For persistence, add `export GMAIL_ACCOUNT="your-email@gmail.com"` to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.).
+
+## 7. (Optional) Full-Scope Authorization for Permanent Delete
+
+By default, the Gmail Agent uses the `gmail.modify` scope via `gog`, which can only **trash** messages (auto-deleted by Gmail after 30 days). To enable **permanent deletion**, run the full-scope authorization script:
+
+```bash
+pip install google-auth-oauthlib  # one-time dependency
+bash skills/gmail-agent/bins/gmail-auth-full-scope.sh "$GMAIL_ACCOUNT"
+```
+
+This opens a browser for OAuth consent with the `https://mail.google.com/` scope (full Gmail access). The token is stored at `~/.gmail-agent/full-scope-token.json`.
+
+Once authorized, the `gmail-delete-old-messages.sh` script will permanently delete messages instead of trashing them.
+
+> **Note:** This is separate from the `gog auth login` token. The full-scope token is only used by the delete-old-messages script. All other scripts continue to use the `gog` CLI with its `gmail.modify` scope.

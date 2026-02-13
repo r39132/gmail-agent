@@ -1,6 +1,6 @@
 ---
 name: gmail-agent
-description: "Gmail automation: summarize, labels, spam purge, filing, deletion"
+description: "Gmail automation: summarize, labels, spam purge, filing, deletion, permanent delete"
 requires:
   binaries: ["gog"]
   env: ["GMAIL_ACCOUNT"]
@@ -134,7 +134,7 @@ bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --undo "<la
 2. Require user to type exactly `DELETE` to confirm.
 3. **ALWAYS use background mode:**
 
-With messages:
+With messages (trashes messages, then deletes labels):
 ```bash
 bash skills/gmail-agent/bins/gmail-background-task.sh \
     "Delete Label: <name>" \
@@ -148,6 +148,8 @@ bash skills/gmail-agent/bins/gmail-background-task.sh \
     "bash skills/gmail-agent/bins/gmail-delete-labels.sh '<name>' '$GMAIL_ACCOUNT'"
 ```
 
+**Note:** Messages are trashed (auto-deleted by Gmail after 30 days). Labels are deleted via the Gmail API using Python.
+
 ## Capability 6: Delete Old Messages by Date
 
 **Requires both a label AND a date.** Confirm with user (require `DELETE`), then:
@@ -156,6 +158,30 @@ bash skills/gmail-agent/bins/gmail-background-task.sh \
 bash skills/gmail-agent/bins/gmail-background-task.sh \
     "Delete Old Messages: <label> before <date>" \
     "bash skills/gmail-agent/bins/gmail-delete-old-messages.sh '<label>' '<MM/DD/YYYY>' '$GMAIL_ACCOUNT'"
+```
+
+**Deletion mode:** If a full-scope token exists (`~/.gmail-agent/full-scope-token.json`), messages are permanently deleted. Otherwise, messages are trashed (auto-deleted after 30 days). Run `gmail-auth-full-scope.sh` once to enable permanent delete.
+
+## Capability 7: Full-Scope Authorization
+
+**One-time setup** to enable permanent message deletion (instead of trash).
+
+```bash
+bash skills/gmail-agent/bins/gmail-auth-full-scope.sh "$GMAIL_ACCOUNT"
+```
+
+Opens a browser for OAuth consent with the `https://mail.google.com/` scope. Token is stored at `~/.gmail-agent/full-scope-token.json`. Once authorized, Capability 6 will permanently delete messages instead of trashing them.
+
+## Convenience Wrappers
+
+**`gmail-bg`** — Shortcut for `gmail-background-task.sh` that auto-sources `.env`:
+```bash
+bash skills/gmail-agent/bins/gmail-bg "<task-name>" "<command>"
+```
+
+**`gmail-jobs`** — Shortcut for `gmail-bg-status.sh`:
+```bash
+bash skills/gmail-agent/bins/gmail-jobs [--running|--completed|--failed|--json|--clean]
 ```
 
 ## Scheduled Daily Run
