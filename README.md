@@ -10,7 +10,7 @@
 ---
 
 <p align="center">
-  <img src="docs/images/nano-banana_red-crab-gmail-cartoony.png" width="300" alt="Gmail Agent" />
+  <img src="docs/images/merlin-crab.png" width="300" alt="Gmail Agent" />
 </p>
 
 # Gmail Agent
