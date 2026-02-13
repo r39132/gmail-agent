@@ -1,6 +1,6 @@
 # Setup Guide
 
-Full setup instructions for gmail-agent: GCP project, OAuth credentials, CLI tools, and environment configuration.
+Full setup instructions for gmail-skill: GCP project, OAuth credentials, CLI tools, and environment configuration.
 
 ## 1. Install Prerequisites
 
@@ -84,7 +84,7 @@ pip install google-auth-oauthlib
 1. Go to **APIs & Services > Credentials**
 2. Click **Create Credentials > OAuth client ID**
 3. Select **Desktop app** as the application type
-4. Give it a name (e.g., "Gmail Agent")
+4. Give it a name (e.g., "Gmail Skill")
 5. Click **Create** and download the credentials JSON file
 
 > **Security note:** Store the credentials file outside this repository (e.g., `~/.config/gog/credentials.json`). Never commit credentials to version control.
@@ -133,14 +133,14 @@ For persistence, add `export GMAIL_ACCOUNT="your-email@gmail.com"` to your shell
 
 ## 7. (Optional) Full-Scope Authorization for Permanent Delete
 
-By default, the Gmail Agent uses the `gmail.modify` scope via `gog`, which can only **trash** messages (auto-deleted by Gmail after 30 days). To enable **permanent deletion**, run the full-scope authorization script:
+By default, the Gmail Skill uses the `gmail.modify` scope via `gog`, which can only **trash** messages (auto-deleted by Gmail after 30 days). To enable **permanent deletion**, run the full-scope authorization script:
 
 ```bash
 pip install google-auth-oauthlib  # one-time dependency
-bash skills/gmail-agent/bins/gmail-auth-full-scope.sh "$GMAIL_ACCOUNT"
+bash skills/gmail-skill/bins/gmail-auth-full-scope.sh "$GMAIL_ACCOUNT"
 ```
 
-This opens a browser for OAuth consent with the `https://mail.google.com/` scope (full Gmail access). The token is stored at `~/.gmail-agent/full-scope-token.json`.
+This opens a browser for OAuth consent with the `https://mail.google.com/` scope (full Gmail access). The token is stored at `~/.gmail-skill/full-scope-token.json`.
 
 Once authorized, the `gmail-delete-old-messages.sh` script will permanently delete messages instead of trashing them.
 

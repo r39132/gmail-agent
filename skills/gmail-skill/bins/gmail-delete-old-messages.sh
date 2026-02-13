@@ -133,7 +133,7 @@ echo ""
 echo "[3/4] Finding and deleting old messages..."
 
 # Check for full-scope token first (enables permanent delete)
-FULL_SCOPE_TOKEN="${HOME}/.gmail-agent/full-scope-token.json"
+FULL_SCOPE_TOKEN="${HOME}/.gmail-skill/full-scope-token.json"
 CAN_DELETE=false
 
 # Export gog token as fallback

@@ -15,9 +15,9 @@ In the bulk deletion case, rather than hand-holding the process, what I needed w
 
 This sounded like a perfect use case for an agent loop. With growing buzz around Agentic and the recent release of [OpenClaw](https://openclaw.ai), I looked for an agent that could solve this problem within [ClawHub](https://clawhub.ai). I first came across the [gogcli agent](https://clawbot.ai/ecosystem/gogcli.html). While useful, its primitives were too low-level to serve my needs. OpenClaw, while it has rough edges, provides a good "onboarding" experience and the ability to use your favorite chat app as the frontend UI. I chose WhatsApp — which means I can manage my Gmail inbox from WhatsApp.
 
-## Gmail Agent To the Rescue
+## Gmail Skill To the Rescue
 
-**Gmail Agent** is complementary to the gogcli agent, but provides higher-level skills for your agent loop. It's a set of bash scripts that wrap the [`gog` CLI](https://github.com/nicholasgasior/gog) to summarize unread mail, audit label hierarchies, and purge spam and trash. While I've tested it with OpenClaw and Claude Desktop, it should work with CrewAI, LangChain, and any other framework that can execute shell commands.
+**Gmail Skill** is complementary to the gogcli agent, but provides higher-level skills for your agent loop. It's a set of bash scripts that wrap the [`gog` CLI](https://github.com/nicholasgasior/gog) to summarize unread mail, audit label hierarchies, and purge spam and trash. While I've tested it with OpenClaw and Claude Desktop, it should work with CrewAI, LangChain, and any other framework that can execute shell commands.
 
 ## How It Works
 
@@ -26,7 +26,7 @@ The architecture is deliberately simple:
 ```
 User (WhatsApp / CLI)
   → OpenClaw Gateway
-    → gmail-agent skill
+    → gmail-skill
       → bins/ shell scripts
         → gog CLI
           → Gmail API
@@ -74,14 +74,14 @@ This is the feature that started paying back storage space immediately. The `gma
 - **SINGLE** — the message only lives under this label (safe to remove)
 - **MULTI** — the message also has other user labels (leave it alone)
 
-This distinction is critical. If I want to clean out `Personal/Receipts/2023`, I don't want to accidentally remove labels from messages that are also filed under `Taxes/2023`. The audit script handles this automatically, and it only proceeds with cleanup after explicit confirmation. This is exactly the kind of multi-step workflow that would be tedious to build from raw `gog` commands every time — and exactly why I built Gmail Agent on top of gogcli.
+This distinction is critical. If I want to clean out `Personal/Receipts/2023`, I don't want to accidentally remove labels from messages that are also filed under `Taxes/2023`. The audit script handles this automatically, and it only proceeds with cleanup after explicit confirmation. This is exactly the kind of multi-step workflow that would be tedious to build from raw `gog` commands every time — and exactly why I built Gmail Skill on top of gogcli.
 
 ### 4. Spam & Trash Purge
 
 This is the feature that solved my original problem. The `gmail-cleanup.sh` script batch-deletes everything in SPAM and TRASH — handling pagination, chunking, and retries automatically so I don't have to sit there clicking through Gmail's batch UI:
 
 ```bash
-bash skills/gmail-agent/bins/gmail-cleanup.sh "$GMAIL_ACCOUNT"
+bash skills/gmail-skill/bins/gmail-cleanup.sh "$GMAIL_ACCOUNT"
 ```
 
 What used to take tens of minutes of manual babysitting now runs unattended and reports back how many messages were purged from each folder.
@@ -92,21 +92,21 @@ This is where the agent loop ties everything together. I registered a daily cron
 
 ## Where to Get It
 
-The full source code, documentation, and setup guide live on GitHub: [github.com/r39132/gmail-agent](https://github.com/r39132/gmail-agent).
+The full source code, documentation, and setup guide live on GitHub: [github.com/r39132/gmail-skill](https://github.com/r39132/gmail-skill).
 
-The agent is also published on [ClawHub](https://clawhub.ai/r39132/gmail-agent), so if you're already using OpenClaw you can install it in one command:
+The agent is also published on [ClawHub](https://clawhub.ai/r39132/gmail-skill), so if you're already using OpenClaw you can install it in one command:
 
 ```bash
-clawhub install gmail-agent
+clawhub install gmail-skill
 ```
 
 That pulls down the skill definition, shell scripts, and cron job configs — ready to use immediately.
 
 ## Framework Agnostic by Design
 
-I built Gmail Agent for OpenClaw and WhatsApp, but I deliberately kept it portable. The `SKILL.md` file serves double duty — for OpenClaw it's a structured skill definition with frontmatter metadata; for everything else it's a plain-English instruction document that any LLM agent can follow.
+I built Gmail Skill for OpenClaw and WhatsApp, but I deliberately kept it portable. The `SKILL.md` file serves double duty — for OpenClaw it's a structured skill definition with frontmatter metadata; for everything else it's a plain-English instruction document that any LLM agent can follow.
 
-This means you can use Gmail Agent with:
+This means you can use Gmail Skill with:
 
 - **OpenClaw** — install as a skill, get WhatsApp chat and cron integration out of the box
 - **Claude Code / Claude Desktop** — use the `gog` commands from SKILL.md as tool calls
@@ -120,14 +120,14 @@ I've tested it with OpenClaw and Claude Desktop myself. The core logic is just b
 
 As I mentioned in the intro, I found the [gogcli agent](https://clawbot.ai/ecosystem/gogcli.html) on ClawHub first. It's a solid general-purpose Google API assistant — you can search messages, fetch labels, modify threads, and call any Gmail endpoint with a single `gog` command. But for my daily cleanup workflow, the primitives were too low-level. I didn't want to string together dozens of API calls by hand every time I needed to purge spam.
 
-Gmail Agent is built *on top of* gogcli and adds the higher-order workflows I was missing:
+Gmail Skill is built *on top of* gogcli and adds the higher-order workflows I was missing:
 
 - **Batch spam/trash purging** — Paginates through all messages in SPAM and TRASH, chunks them into batches, issues bulk deletes with progress reporting. No more hand-holding Gmail's batch UI.
 - **Label auditing** — traverses an entire label hierarchy, classifies each message as single-label or multi-label, and selectively cleans up only the safe ones.
 - **Folder structure snapshots** — iterates over every label, fetches counts individually, and renders a tree view — essential for understanding where storage is going.
 - **Scheduled digests** — combines summary + purge into a single cron-triggered workflow that delivers results to WhatsApp.
 
-The two agents coexist cleanly. Think of gogcli as `curl` and Gmail Agent as the shell scripts you'd write around it. Both use the same OAuth credentials and the same `gog` binary, so there's zero conflict. I still use gogcli for ad-hoc queries and one-off API calls — Gmail Agent handles the repeatable, daily operations I'd otherwise forget to do.
+The two agents coexist cleanly. Think of gogcli as `curl` and Gmail Skill as the shell scripts you'd write around it. Both use the same OAuth credentials and the same `gog` binary, so there's zero conflict. I still use gogcli for ad-hoc queries and one-off API calls — Gmail Skill handles the repeatable, daily operations I'd otherwise forget to do.
 
 ## Getting Started
 
@@ -157,7 +157,7 @@ Setup takes about five minutes:
      --account "$GMAIL_ACCOUNT" --max 5 --plain
    ```
 
-The project is open source under the MIT license: [github.com/r39132/gmail-agent](https://github.com/r39132/gmail-agent).
+The project is open source under the MIT license: [github.com/r39132/gmail-skill](https://github.com/r39132/gmail-skill).
 
 ## What's Next?
 
@@ -171,4 +171,4 @@ Future enhancements on the roadmap:
 
 ---
 
-If you're tired of babysitting Gmail's batch deletion UI, or you want to manage your inbox from WhatsApp instead of wrestling with the Gmail app's label navigation, give [Gmail Agent](https://github.com/r39132/gmail-agent) a try. It's a few bash scripts on top of gogcli, five minutes of setup, and a daily cron job that keeps your storage in check without you lifting a finger.
+If you're tired of babysitting Gmail's batch deletion UI, or you want to manage your inbox from WhatsApp instead of wrestling with the Gmail app's label navigation, give [Gmail Skill](https://github.com/r39132/gmail-skill) a try. It's a few bash scripts on top of gogcli, five minutes of setup, and a daily cron job that keeps your storage in check without you lifting a finger.

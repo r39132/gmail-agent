@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# install-skill.sh — Symlink the gmail-agent skill into the OpenClaw workspace
+# install-skill.sh — Symlink the gmail-skill into the OpenClaw workspace
 #
 set -euo pipefail
 
-SKILL_SOURCE="$(cd "$(dirname "$0")/../skills/gmail-agent" && pwd)"
-SKILL_TARGET="$HOME/.openclaw/workspace/skills/gmail-agent"
+SKILL_SOURCE="$(cd "$(dirname "$0")/../skills/gmail-skill" && pwd)"
+SKILL_TARGET="$HOME/.openclaw/workspace/skills/gmail-skill"
 
 # Ensure the target directory exists
 mkdir -p "$HOME/.openclaw/workspace/skills"

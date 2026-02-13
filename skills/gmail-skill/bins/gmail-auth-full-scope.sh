@@ -3,7 +3,7 @@
 # gmail-auth-full-scope.sh — One-time OAuth flow for full Gmail scope
 #
 # This grants permanent delete capability (messages.delete / batchDelete).
-# Run once; the token is stored at ~/.gmail-agent/full-scope-token.json
+# Run once; the token is stored at ~/.gmail-skill/full-scope-token.json
 #
 # Usage: gmail-auth-full-scope.sh [account-email]
 #
@@ -25,7 +25,7 @@ if [[ ! -f "$GOG_CREDS_DIR/credentials.json" ]]; then
     exit 1
 fi
 
-TOKEN_DIR="${HOME}/.gmail-agent"
+TOKEN_DIR="${HOME}/.gmail-skill"
 TOKEN_FILE="${TOKEN_DIR}/full-scope-token.json"
 mkdir -p "$TOKEN_DIR"
 
@@ -77,7 +77,7 @@ with open(token_file, "w") as f:
 
 print(f"\nToken saved to: {token_file}")
 print(f"Scope: https://mail.google.com/ (full access)")
-print("You can now permanently delete messages via the Gmail agent.")
+print("You can now permanently delete messages via the Gmail skill.")
 PYEOF
 
 echo ""

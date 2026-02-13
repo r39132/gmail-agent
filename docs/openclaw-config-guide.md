@@ -2,7 +2,7 @@
 
 A checklist of safe defaults and lessons learned from running OpenClaw with WhatsApp as the primary channel. Written for personal Gmail accounts on macOS, but most advice applies broadly.
 
-> **Context:** This guide was written alongside the [gmail-agent](https://github.com/r39132/gmail-agent) project. The pitfalls are general OpenClaw issues, not specific to Gmail.
+> **Context:** This guide was written alongside the [gmail-skill](https://github.com/r39132/gmail-skill) project. The pitfalls are general OpenClaw issues, not specific to Gmail.
 
 ---
 
@@ -280,7 +280,7 @@ openclaw update apply        # Apply update
 
 ### Clean up background jobs
 
-If you use background task scripts (like gmail-agent does), old job records accumulate. Clean them periodically:
+If you use background task scripts (like gmail-skill does), old job records accumulate. Clean them periodically:
 
 ```bash
 openclaw jobs clean          # Or your skill's equivalent
@@ -330,7 +330,7 @@ nohup bash -c 'your-long-command' </dev/null >/tmp/task.log 2>&1 &
 disown
 ```
 
-Then use a separate monitoring loop to send progress updates via `openclaw message send`. This is the pattern gmail-agent's `gmail-background-task.sh` uses.
+Then use a separate monitoring loop to send progress updates via `openclaw message send`. This is the pattern gmail-skill's `gmail-background-task.sh` uses.
 
 ### WhatsApp session expiry
 

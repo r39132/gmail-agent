@@ -2,7 +2,7 @@
 [![Bash 4+](https://img.shields.io/badge/Bash-4%2B-4EAA25?logo=gnubash&logoColor=white)](#)
 [![gog CLI](https://img.shields.io/badge/gog-v0.9-4285F4?logo=google&logoColor=white)](https://github.com/nicholasgasior/gog)
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-Skill-FF6B35?logo=lobster&logoColor=white)](https://openclaw.ai)
-[![ClawHub](https://img.shields.io/badge/ClawHub-v1.1.0-8B5CF6?logo=npm&logoColor=white)](https://clawhub.ai/r39132/gmail-agent)
+[![ClawHub](https://img.shields.io/badge/ClawHub-v1.1.0-8B5CF6?logo=npm&logoColor=white)](https://clawhub.ai/r39132/gmail-skill)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 ![macOS](https://img.shields.io/badge/macOS-supported-000000?logo=apple&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-supported-FCC624?logo=linux&logoColor=black)
@@ -11,10 +11,10 @@
 [![Opus](https://img.shields.io/badge/Opus_4-D97757?logo=claude&logoColor=white)](https://anthropic.com)
 
 <p align="center">
-  <img src="docs/images/merlin-crab.png" width="300" alt="Gmail Agent" />
+  <img src="docs/images/merlin-crab.png" width="300" alt="Gmail Skill" />
 </p>
 
-# Gmail Agent
+# Gmail Skill
 
 CLI-powered Gmail automation • Inbox summaries • Spam cleanup • Label management • Background execution with WhatsApp notifications
 
@@ -42,33 +42,33 @@ gog gmail messages search "in:inbox" --account "$GMAIL_ACCOUNT" --max 50 --plain
 gog gmail messages search "is:unread -in:spam -in:trash" --account "$GMAIL_ACCOUNT" --max 50 --plain
 
 # Folder structure
-bash skills/gmail-agent/bins/gmail-labels.sh "$GMAIL_ACCOUNT"
+bash skills/gmail-skill/bins/gmail-labels.sh "$GMAIL_ACCOUNT"
 
 # Clean spam & trash
-bash skills/gmail-agent/bins/gmail-cleanup.sh "$GMAIL_ACCOUNT"
+bash skills/gmail-skill/bins/gmail-cleanup.sh "$GMAIL_ACCOUNT"
 
 # Move messages to label (interactive)
-bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --search-labels "receipts"
-bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --list-inbox
-bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --move "Personal/Receipts" msg-1 msg-2
-bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --undo "Personal/Receipts" msg-1 msg-2
+bash skills/gmail-skill/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --search-labels "receipts"
+bash skills/gmail-skill/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --list-inbox
+bash skills/gmail-skill/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --move "Personal/Receipts" msg-1 msg-2
+bash skills/gmail-skill/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --undo "Personal/Receipts" msg-1 msg-2
 
 # Delete label + messages (destructive)
-bash skills/gmail-agent/bins/gmail-delete-labels.sh "Professional/OldCompany" "$GMAIL_ACCOUNT"
-bash skills/gmail-agent/bins/gmail-delete-labels.sh "Professional/OldCompany" --delete-messages "$GMAIL_ACCOUNT"
+bash skills/gmail-skill/bins/gmail-delete-labels.sh "Professional/OldCompany" "$GMAIL_ACCOUNT"
+bash skills/gmail-skill/bins/gmail-delete-labels.sh "Professional/OldCompany" --delete-messages "$GMAIL_ACCOUNT"
 
 # Delete old messages by date
-bash skills/gmail-agent/bins/gmail-delete-old-messages.sh "Personal/Archive" "01/01/2020" "$GMAIL_ACCOUNT"
+bash skills/gmail-skill/bins/gmail-delete-old-messages.sh "Personal/Archive" "01/01/2020" "$GMAIL_ACCOUNT"
 
 # Enable permanent delete (one-time OAuth)
-bash skills/gmail-agent/bins/gmail-auth-full-scope.sh "$GMAIL_ACCOUNT"
+bash skills/gmail-skill/bins/gmail-auth-full-scope.sh "$GMAIL_ACCOUNT"
 
 # Background execution
 export WHATSAPP_NOTIFY_TARGET="+15555550123"
-bash skills/gmail-agent/bins/gmail-bg "Task Name" "bash skills/gmail-agent/bins/gmail-cleanup.sh '$GMAIL_ACCOUNT'"
-bash skills/gmail-agent/bins/gmail-jobs              # Status
-bash skills/gmail-agent/bins/gmail-jobs --running    # Running only
-bash skills/gmail-agent/bins/gmail-jobs --clean      # Remove old
+bash skills/gmail-skill/bins/gmail-bg "Task Name" "bash skills/gmail-skill/bins/gmail-cleanup.sh '$GMAIL_ACCOUNT'"
+bash skills/gmail-skill/bins/gmail-jobs              # Status
+bash skills/gmail-skill/bins/gmail-jobs --running    # Running only
+bash skills/gmail-skill/bins/gmail-jobs --clean      # Remove old
 ```
 
 ---
@@ -76,7 +76,7 @@ bash skills/gmail-agent/bins/gmail-jobs --clean      # Remove old
 ## Demo
 
 <p align="center">
-  <img src="docs/images/whatsapp-demo.png" width="100%" alt="Gmail Agent delivering inbox summary via WhatsApp" />
+  <img src="docs/images/whatsapp-demo.png" width="100%" alt="Gmail Skill delivering inbox summary via WhatsApp" />
 </p>
 
 ---
@@ -101,7 +101,7 @@ bash skills/gmail-agent/bins/gmail-jobs --clean      # Remove old
 <summary><b>WhatsApp Notifications Example</b></summary>
 
 ```
-📧 Gmail Agent: Starting task 'Spam & Trash Cleanup'
+📧 Gmail Skill: Starting task 'Spam & Trash Cleanup'
 Account: you@gmail.com • Started: 2026-02-11 14:30:00
 Running in background... Updates every 30s
 
@@ -123,7 +123,7 @@ Log: /tmp/gmail-bg-20260211-143000.log
 
 ```bash
 # Install from ClawHub
-clawhub install gmail-agent
+clawhub install gmail-skill
 
 # Or from source
 bash setup/install-skill.sh
@@ -179,11 +179,11 @@ flowchart TD
 
     subgraph agent ["Agent Layer (optional)"]
         OC["OpenClaw Gateway"]
-        Skill["gmail-agent skill\n(SKILL.md)"]
+        Skill["gmail-skill\n(SKILL.md)"]
     end
 
     subgraph core ["Core (bash + gog + jq)"]
-        Scripts["Shell Scripts\n(skills/gmail-agent/bins/)"]
+        Scripts["Shell Scripts\n(skills/gmail-skill/bins/)"]
         GOG["gog CLI"]
     end
 
@@ -232,7 +232,7 @@ def summarize_inbox() -> str:
 def clean_spam_trash() -> str:
     """Purge spam and trash folders."""
     result = subprocess.run(
-        ["bash", "skills/gmail-agent/bins/gmail-cleanup.sh"],
+        ["bash", "skills/gmail-skill/bins/gmail-cleanup.sh"],
         capture_output=True, text=True
     )
     return result.stdout
@@ -252,7 +252,7 @@ Use `gog` commands from `SKILL.md` as tool calls. The SKILL.md file serves as in
 
 ```bash
 # crontab -e
-0 12 * * * source ~/.env && bash ~/Projects/gmail-agent/skills/gmail-agent/bins/gmail-cleanup.sh >> ~/gmail-agent.log 2>&1
+0 12 * * * source ~/.env && bash ~/Projects/gmail-skill/skills/gmail-skill/bins/gmail-cleanup.sh >> ~/gmail-skill.log 2>&1
 ```
 
 </details>
@@ -262,8 +262,8 @@ Use `gog` commands from `SKILL.md` as tool calls. The SKILL.md file serves as in
 ## Project Structure
 
 ```
-gmail-agent/
-├── skills/gmail-agent/bins/
+gmail-skill/
+├── skills/gmail-skill/bins/
 │   ├── gmail-cleanup.sh              # Spam & trash purge
 │   ├── gmail-labels.sh               # Folder tree view
 │   ├── gmail-move-to-label.sh        # Interactive label mover
@@ -281,7 +281,7 @@ gmail-agent/
 ├── docs/SETUP.md                     # Full GCP/OAuth setup
 ├── docs/openclaw-config-guide.md     # OpenClaw safe config checklist
 ├── blogs/                            # Blog posts
-└── skills/gmail-agent/SKILL.md       # Agent skill definition
+└── skills/gmail-skill/SKILL.md       # Skill definition
 ```
 
 **Dependencies by layer:**
@@ -304,8 +304,8 @@ CRON_SCHEDULE="0 12 * * *"                       # Optional: noon daily
 ```
 
 **Files:**
-- `~/.gmail-agent/full-scope-token.json` — Full-scope OAuth for permanent delete
-- `~/.gmail-agent/jobs/` — Background job registry
+- `~/.gmail-skill/full-scope-token.json` — Full-scope OAuth for permanent delete
+- `~/.gmail-skill/jobs/` — Background job registry
 
 ---
 
@@ -328,7 +328,7 @@ Install via your package manager — see [Setup Guide](docs/SETUP.md#1-install-p
 
 Set `GMAIL_ACCOUNT` in your `.env` file and run `source .env`, or pass it as an argument:
 ```bash
-bash skills/gmail-agent/bins/gmail-cleanup.sh your-email@gmail.com
+bash skills/gmail-skill/bins/gmail-cleanup.sh your-email@gmail.com
 ```
 </details>
 
@@ -368,10 +368,10 @@ The script also needs `gog` OAuth credentials (created during `gog auth login`).
 By default, delete operations trash messages (auto-deleted by Gmail after 30 days). To enable permanent deletion:
 
 ```bash
-bash skills/gmail-agent/bins/gmail-auth-full-scope.sh "$GMAIL_ACCOUNT"
+bash skills/gmail-skill/bins/gmail-auth-full-scope.sh "$GMAIL_ACCOUNT"
 ```
 
-This performs a one-time OAuth flow for the `https://mail.google.com/` scope and stores the token at `~/.gmail-agent/full-scope-token.json`. Requires `pip install google-auth-oauthlib`.
+This performs a one-time OAuth flow for the `https://mail.google.com/` scope and stores the token at `~/.gmail-skill/full-scope-token.json`. Requires `pip install google-auth-oauthlib`.
 </details>
 
 <details>

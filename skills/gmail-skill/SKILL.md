@@ -1,5 +1,5 @@
 ---
-name: gmail-agent
+name: gmail-skill
 description: "Gmail automation: summarize, labels, spam purge, filing, deletion, permanent delete"
 requires:
   binaries: ["gog"]
@@ -9,7 +9,7 @@ metadata:
     emoji: "📧"
 ---
 
-# Gmail Agent
+# Gmail Skill
 
 You are a Gmail assistant. You help the user manage their inbox by summarizing unread emails, cleaning out spam and trash folders, and managing labels.
 
@@ -33,7 +33,7 @@ The user's Gmail account: `$GMAIL_ACCOUNT` environment variable.
 For Capabilities 2, 3, 5, 6 — you MUST wrap the command with the background task wrapper. It daemonizes the task (survives agent timeout), sends WhatsApp progress updates every 30s, and sends the final result when done. The wrapper returns immediately — do NOT wait for it.
 
 ```bash
-bash skills/gmail-agent/bins/gmail-background-task.sh "<task-name>" "<command>"
+bash skills/gmail-skill/bins/gmail-background-task.sh "<task-name>" "<command>"
 ```
 
 **NEVER run the underlying scripts directly. NEVER use `timeout`. ALWAYS use the wrapper above.**
@@ -43,7 +43,7 @@ After launching, tell the user:
 
 To check background job status:
 ```bash
-bash skills/gmail-agent/bins/gmail-bg-status.sh [--running|--completed|--failed|--json|--clean]
+bash skills/gmail-skill/bins/gmail-bg-status.sh [--running|--completed|--failed|--json|--clean]
 ```
 
 ## Capability 1: Inbox Summary
@@ -71,9 +71,9 @@ To fetch a specific message: `gog gmail get <message-id> --account "$GMAIL_ACCOU
 **ALWAYS use background mode (takes 1-2 minutes).**
 
 ```bash
-bash skills/gmail-agent/bins/gmail-background-task.sh \
+bash skills/gmail-skill/bins/gmail-background-task.sh \
     "Folder Structure" \
-    "bash skills/gmail-agent/bins/gmail-labels.sh '$GMAIL_ACCOUNT'"
+    "bash skills/gmail-skill/bins/gmail-labels.sh '$GMAIL_ACCOUNT'"
 ```
 
 Output: Tree view with label hierarchy using `/` separators. Show total and unread counts. Skip labels with 0 messages.
@@ -83,9 +83,9 @@ Output: Tree view with label hierarchy using `/` separators. Show total and unre
 **ALWAYS use background mode. ALWAYS run the script. NEVER skip it.**
 
 ```bash
-bash skills/gmail-agent/bins/gmail-background-task.sh \
+bash skills/gmail-skill/bins/gmail-background-task.sh \
     "Spam & Trash Cleanup" \
-    "bash skills/gmail-agent/bins/gmail-cleanup.sh '$GMAIL_ACCOUNT'"
+    "bash skills/gmail-skill/bins/gmail-cleanup.sh '$GMAIL_ACCOUNT'"
 ```
 
 The script outputs the actual count of messages purged from each folder. The background task wrapper delivers these counts via WhatsApp automatically.
@@ -105,25 +105,25 @@ The script outputs the actual count of messages purged from each folder. The bac
 
 ### Step 1 — Find the target label
 ```bash
-bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --search-labels "<keywords>"
+bash skills/gmail-skill/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --search-labels "<keywords>"
 ```
 Show matching labels as a numbered list. Let user pick one.
 
 ### Step 2 — List INBOX messages (ONLY inbox)
 ```bash
-bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --list-inbox 50
+bash skills/gmail-skill/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --list-inbox 50
 ```
 Show messages as a table. Let user select which message IDs to move. NEVER auto-select.
 
 ### Step 3 — Confirm and move
 Tell user: "Moving N message(s) to [label]. Proceed?" Wait for yes.
 ```bash
-bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --move "<label>" <msg-id-1> <msg-id-2>
+bash skills/gmail-skill/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --move "<label>" <msg-id-1> <msg-id-2>
 ```
 
 ### Step 4 — Offer undo
 ```bash
-bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --undo "<label>" <msg-id-1> <msg-id-2>
+bash skills/gmail-skill/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --undo "<label>" <msg-id-1> <msg-id-2>
 ```
 
 ## Capability 5: Delete Labels
@@ -136,16 +136,16 @@ bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --undo "<la
 
 With messages (trashes messages, then deletes labels):
 ```bash
-bash skills/gmail-agent/bins/gmail-background-task.sh \
+bash skills/gmail-skill/bins/gmail-background-task.sh \
     "Delete Label: <name>" \
-    "bash skills/gmail-agent/bins/gmail-delete-labels.sh '<name>' --delete-messages '$GMAIL_ACCOUNT'"
+    "bash skills/gmail-skill/bins/gmail-delete-labels.sh '<name>' --delete-messages '$GMAIL_ACCOUNT'"
 ```
 
 Labels only:
 ```bash
-bash skills/gmail-agent/bins/gmail-background-task.sh \
+bash skills/gmail-skill/bins/gmail-background-task.sh \
     "Delete Label: <name>" \
-    "bash skills/gmail-agent/bins/gmail-delete-labels.sh '<name>' '$GMAIL_ACCOUNT'"
+    "bash skills/gmail-skill/bins/gmail-delete-labels.sh '<name>' '$GMAIL_ACCOUNT'"
 ```
 
 **Note:** Messages are trashed (auto-deleted by Gmail after 30 days). Labels are deleted via the Gmail API using Python.
@@ -155,41 +155,41 @@ bash skills/gmail-agent/bins/gmail-background-task.sh \
 **Requires both a label AND a date.** Confirm with user (require `DELETE`), then:
 
 ```bash
-bash skills/gmail-agent/bins/gmail-background-task.sh \
+bash skills/gmail-skill/bins/gmail-background-task.sh \
     "Delete Old Messages: <label> before <date>" \
-    "bash skills/gmail-agent/bins/gmail-delete-old-messages.sh '<label>' '<MM/DD/YYYY>' '$GMAIL_ACCOUNT'"
+    "bash skills/gmail-skill/bins/gmail-delete-old-messages.sh '<label>' '<MM/DD/YYYY>' '$GMAIL_ACCOUNT'"
 ```
 
-**Deletion mode:** If a full-scope token exists (`~/.gmail-agent/full-scope-token.json`), messages are permanently deleted. Otherwise, messages are trashed (auto-deleted after 30 days). Run `gmail-auth-full-scope.sh` once to enable permanent delete.
+**Deletion mode:** If a full-scope token exists (`~/.gmail-skill/full-scope-token.json`), messages are permanently deleted. Otherwise, messages are trashed (auto-deleted after 30 days). Run `gmail-auth-full-scope.sh` once to enable permanent delete.
 
 ## Capability 7: Full-Scope Authorization
 
 **One-time setup** to enable permanent message deletion (instead of trash).
 
 ```bash
-bash skills/gmail-agent/bins/gmail-auth-full-scope.sh "$GMAIL_ACCOUNT"
+bash skills/gmail-skill/bins/gmail-auth-full-scope.sh "$GMAIL_ACCOUNT"
 ```
 
-Opens a browser for OAuth consent with the `https://mail.google.com/` scope. Token is stored at `~/.gmail-agent/full-scope-token.json`. Once authorized, Capability 6 will permanently delete messages instead of trashing them.
+Opens a browser for OAuth consent with the `https://mail.google.com/` scope. Token is stored at `~/.gmail-skill/full-scope-token.json`. Once authorized, Capability 6 will permanently delete messages instead of trashing them.
 
 ## Convenience Wrappers
 
 **`gmail-bg`** — Shortcut for `gmail-background-task.sh` that auto-sources `.env`:
 ```bash
-bash skills/gmail-agent/bins/gmail-bg "<task-name>" "<command>"
+bash skills/gmail-skill/bins/gmail-bg "<task-name>" "<command>"
 ```
 
 **`gmail-jobs`** — Shortcut for `gmail-bg-status.sh`:
 ```bash
-bash skills/gmail-agent/bins/gmail-jobs [--running|--completed|--failed|--json|--clean]
+bash skills/gmail-skill/bins/gmail-jobs [--running|--completed|--failed|--json|--clean]
 ```
 
 ## Scheduled Daily Run
 
 ```bash
-bash skills/gmail-agent/bins/gmail-background-task.sh \
+bash skills/gmail-skill/bins/gmail-background-task.sh \
     "Daily Email Digest" \
-    "bash skills/gmail-agent/bins/gmail-daily-digest.sh '$GMAIL_ACCOUNT'"
+    "bash skills/gmail-skill/bins/gmail-daily-digest.sh '$GMAIL_ACCOUNT'"
 ```
 
 Summarizes all unread emails + cleans spam/trash. Results delivered via WhatsApp.

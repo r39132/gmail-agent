@@ -50,7 +50,7 @@ This one bit me during skill development, not OpenClaw configuration per se, but
 
 macOS ships with bash 3.2 — released in 2007. If any skill uses associative arrays (`declare -A`), which are a bash 4+ feature, the script fails with a cryptic syntax error that doesn't mention bash versions at all. You just get something like `declare: -A: invalid option`.
 
-My gmail-agent scripts use associative arrays to map label names to label IDs. They worked fine on my Linux server and failed mysteriously on macOS until I realized the system bash was 17 years behind.
+My gmail-skill scripts use associative arrays to map label names to label IDs. They worked fine on my Linux server and failed mysteriously on macOS until I realized the system bash was 17 years behind.
 
 ```bash
 brew install bash    # Installs bash 5.x to /usr/local/bin/bash
@@ -159,4 +159,4 @@ But it's the kind of tool where the defaults aren't safe enough, the failure mod
 
 ---
 
-The configuration guide and all the gmail-agent scripts are on GitHub: [github.com/r39132/gmail-agent](https://github.com/r39132/gmail-agent). If you're using OpenClaw, the agent is also on [ClawHub](https://clawhub.ai/r39132/gmail-agent).
+The configuration guide and all the gmail-skill scripts are on GitHub: [github.com/r39132/gmail-skill](https://github.com/r39132/gmail-skill). If you're using OpenClaw, the agent is also on [ClawHub](https://clawhub.ai/r39132/gmail-skill).

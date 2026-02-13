@@ -13,7 +13,7 @@ set -euo pipefail
 
 # Get script directory and project root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# From bins/ -> skills/gmail-agent/ -> skills/ -> gmail-agent/
+# From bins/ -> skills/gmail-skill/ -> skills/ -> gmail-skill/
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 # Source .env if it exists

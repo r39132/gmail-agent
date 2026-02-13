@@ -12,7 +12,7 @@
 #
 set -euo pipefail
 
-REGISTRY_DIR="${HOME}/.gmail-agent/jobs"
+REGISTRY_DIR="${HOME}/.gmail-skill/jobs"
 FILTER="all"
 OUTPUT_FORMAT="table"
 CLEAN_OLD=false

@@ -19,7 +19,7 @@ openclaw cron add \
     --cron "$CRON_SCHEDULE" \
     --tz "$CRON_TIMEZONE" \
     --session isolated \
-    --message "Run the gmail-agent skill: 1) Summarize all unread emails in my inbox. 2) Clean out my spam and trash folders. Report what you did." \
+    --message "Run the gmail-skill: 1) Summarize all unread emails in my inbox. 2) Clean out my spam and trash folders. Report what you did." \
     --deliver
 
 echo ""
