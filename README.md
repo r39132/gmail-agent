@@ -2,10 +2,13 @@
 [![Bash 4+](https://img.shields.io/badge/Bash-4%2B-4EAA25?logo=gnubash&logoColor=white)](#)
 [![gog CLI](https://img.shields.io/badge/gog-v0.9-4285F4?logo=google&logoColor=white)](https://github.com/nicholasgasior/gog)
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-Skill-FF6B35?logo=lobster&logoColor=white)](https://openclaw.ai)
-[![ClawHub](https://img.shields.io/badge/ClawHub-v1.0.0-8B5CF6?logo=npm&logoColor=white)](https://clawhub.ai/r39132/gmail-agent)
+[![ClawHub](https://img.shields.io/badge/ClawHub-v1.1.0-8B5CF6?logo=npm&logoColor=white)](https://clawhub.ai/r39132/gmail-agent)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 ![macOS](https://img.shields.io/badge/macOS-supported-000000?logo=apple&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-supported-FCC624?logo=linux&logoColor=black)
+[![Claude Code](https://img.shields.io/badge/Claude_Code-D97757?logo=claude&logoColor=white)](https://docs.anthropic.com/en/docs/claude-code)
+[![Sonnet](https://img.shields.io/badge/Sonnet_4-D97757?logo=claude&logoColor=white)](https://anthropic.com)
+[![Opus](https://img.shields.io/badge/Opus_4-D97757?logo=claude&logoColor=white)](https://anthropic.com)
 
 <p align="center">
   <img src="docs/images/merlin-crab.png" width="300" alt="Gmail Agent" />
