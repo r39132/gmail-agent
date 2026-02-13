@@ -77,18 +77,24 @@ get_duration() {
     fi
 }
 
+MONITOR_LOG="${LOG_FILE%.log}.monitor.log"
+POLL_INTERVAL=5
+
 send_notify() {
-    openclaw message send --channel whatsapp --target "$NOTIFY_TARGET" --message "$1" >/dev/null 2>&1 || true
+    echo "$(date): notify: ${1:0:80}..." >> "$MONITOR_LOG"
+    openclaw message send --channel whatsapp --target "$NOTIFY_TARGET" --message "$1" >> "$MONITOR_LOG" 2>&1 || true
 }
 
 START_TIME=$(date +%s)
 echo "Running: $COMMAND" > "$LOG_FILE"
 echo "Started: $(date)" >> "$LOG_FILE"
 echo "" >> "$LOG_FILE"
+echo "Monitor started: poll=${POLL_INTERVAL}s, notify=${UPDATE_INTERVAL}s" > "$MONITOR_LOG"
 
 # Run the actual task
 eval "$COMMAND" >> "$LOG_FILE" 2>&1 &
 TASK_PID=$!
+echo "Task PID: $TASK_PID" >> "$MONITOR_LOG"
 
 # Register job
 cat > "$REGISTRY_FILE" <<REOF
@@ -105,12 +111,16 @@ cat > "$REGISTRY_FILE" <<REOF
 }
 REOF
 
-# Monitor + send updates
+# Monitor: poll every 5s, send WhatsApp updates every UPDATE_INTERVAL
 UPDATE_COUNT=0
+LAST_NOTIFY_TIME=$START_TIME
 while kill -0 $TASK_PID 2>/dev/null; do
-    sleep "$UPDATE_INTERVAL"
-    if kill -0 $TASK_PID 2>/dev/null; then
+    sleep "$POLL_INTERVAL"
+    NOW=$(date +%s)
+    ELAPSED=$((NOW - LAST_NOTIFY_TIME))
+    if kill -0 $TASK_PID 2>/dev/null && [[ $ELAPSED -ge $UPDATE_INTERVAL ]]; then
         UPDATE_COUNT=$((UPDATE_COUNT + 1))
+        LAST_NOTIFY_TIME=$NOW
         send_notify "⏳ Gmail Agent: Task '"'"'$TASK_NAME'"'"' still running...
 
 Duration: $(get_duration $START_TIME)
@@ -121,6 +131,7 @@ done
 wait $TASK_PID
 EXIT_CODE=$?
 DURATION=$(get_duration $START_TIME)
+echo "$(date): Task finished: exit=$EXIT_CODE, duration=$DURATION" >> "$MONITOR_LOG"
 
 if [[ $EXIT_CODE -eq 0 ]]; then JOB_STATUS="completed"; else JOB_STATUS="failed"; fi
 

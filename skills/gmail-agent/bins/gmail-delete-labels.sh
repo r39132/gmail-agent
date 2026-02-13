@@ -288,58 +288,8 @@ if [[ "${failed_count:-0}" -gt 0 ]]; then
 fi
 echo ""
 
-# --- Step 4: Empty trash if messages were deleted ---
-if [[ "$DELETE_MESSAGES" == true ]] && [[ $total_deleted -gt 0 ]]; then
-    echo "[4/4] Emptying trash..."
-
-    trash_emptied=0
-    while true; do
-        # Get trash message IDs
-        ids=$(gog gmail messages search "in:trash" \
-            --account "$ACCOUNT" \
-            --max 500 \
-            --plain 2>&1 \
-            | tail -n +2 \
-            | grep -vE '^(#|No results)' \
-            | cut -f1 || true)
-
-        if [[ -z "$ids" ]]; then
-            break
-        fi
-
-        batch_count=0
-        batch_ids=()
-
-        while IFS= read -r id; do
-            [[ -z "$id" ]] && continue
-            batch_ids+=("$id")
-            batch_count=$((batch_count + 1))
-
-            if [[ ${#batch_ids[@]} -ge 100 ]]; then
-                gog gmail batch modify "${batch_ids[@]}" \
-                    --account "$ACCOUNT" \
-                    --remove="TRASH" \
-                    --force &>/dev/null
-                batch_ids=()
-            fi
-        done <<< "$ids"
-
-        if [[ ${#batch_ids[@]} -gt 0 ]]; then
-            gog gmail batch modify "${batch_ids[@]}" \
-                --account "$ACCOUNT" \
-                --remove="TRASH" \
-                --force &>/dev/null
-        fi
-
-        trash_emptied=$((trash_emptied + batch_count))
-
-        if [[ $batch_count -lt 500 ]]; then
-            break
-        fi
-    done
-
-    echo "Trash emptied: $trash_emptied messages permanently deleted"
-    echo ""
-fi
+# Note: With gmail.modify scope, we cannot permanently delete messages.
+# Trashed messages will be auto-deleted by Gmail after 30 days.
+# To empty trash immediately, do it manually in Gmail.
 
 echo "Done!"

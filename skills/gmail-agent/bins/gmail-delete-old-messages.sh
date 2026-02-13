@@ -130,13 +130,25 @@ echo "Gmail search format: before:${GMAIL_DATE}"
 echo ""
 
 # --- Step 3: Search and delete old messages ---
-echo "[3/4] Finding and trashing old messages..."
+echo "[3/4] Finding and deleting old messages..."
 
-# Export gog token
-TOKEN_FILE=$(mktemp /tmp/gog_token_XXXXXX.json)
+# Check for full-scope token first (enables permanent delete)
+FULL_SCOPE_TOKEN="${HOME}/.gmail-agent/full-scope-token.json"
+CAN_DELETE=false
+
+# Export gog token as fallback
+TOKEN_FILE=$(mktemp)
+rm "$TOKEN_FILE"  # gog auth tokens export needs the file to NOT exist
 trap "rm -f '$TOKEN_FILE'" EXIT
 
-gog auth tokens export "$ACCOUNT" --out "$TOKEN_FILE" 2>/dev/null
+if [[ -f "$FULL_SCOPE_TOKEN" ]]; then
+    cp "$FULL_SCOPE_TOKEN" "$TOKEN_FILE"
+    CAN_DELETE=true
+    echo "Using full-scope token (permanent delete enabled)"
+else
+    gog auth tokens export "$ACCOUNT" --out "$TOKEN_FILE" 2>/dev/null || true
+    echo "Using gog token (trash only — run gmail-auth-full-scope.sh for permanent delete)"
+fi
 
 GOG_CREDS_DIR="${HOME}/Library/Application Support/gogcli"
 if [[ ! -f "$GOG_CREDS_DIR/credentials.json" ]]; then
@@ -148,7 +160,7 @@ if [[ ! -f "$GOG_CREDS_DIR/credentials.json" ]]; then
     exit 1
 fi
 
-# Build search queries for each label
+# Build search queries for each label (include label IDs for API filtering)
 SEARCH_QUERIES="["
 first=true
 for lbl in "${matching_labels[@]}"; do
@@ -157,18 +169,19 @@ for lbl in "${matching_labels[@]}"; do
     else
         SEARCH_QUERIES+=","
     fi
-    SEARCH_QUERIES+="{\"label\":\"${lbl}\",\"before\":\"${GMAIL_DATE}\"}"
+    SEARCH_QUERIES+="{\"label\":\"${lbl}\",\"label_id\":\"${label_ids[$lbl]}\",\"before\":\"${GMAIL_DATE}\"}"
 done
 SEARCH_QUERIES+="]"
 
 # Run Python to search and delete
-result=$(python3 - "$TOKEN_FILE" "$GOG_CREDS_DIR/credentials.json" "$SEARCH_QUERIES" << 'PYEOF'
+result=$(python3 - "$TOKEN_FILE" "$GOG_CREDS_DIR/credentials.json" "$SEARCH_QUERIES" "$CAN_DELETE" << 'PYEOF'
 import json, sys
 from datetime import datetime
 
 token_file = sys.argv[1]
 creds_file = sys.argv[2]
 queries_json = sys.argv[3]
+can_delete = sys.argv[4] == "true"
 
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -189,127 +202,96 @@ creds = Credentials(
 service = build("gmail", "v1", credentials=creds)
 queries = json.loads(queries_json)
 
-all_msg_ids = set()
-for query in queries:
-    label = query["label"]
-    before_date = query["before"]
+import time
 
-    print(f"  Searching: {label} before {before_date}")
+total_trashed = 0
+total_failed = 0
 
-    # Search for messages
-    search_query = f'label:"{label}" before:{before_date}'
-    try:
-        results = service.users().messages().list(
-            userId="me",
-            q=search_query,
-            maxResults=500
-        ).execute()
+# Loop until no more messages found (Gmail index is eventually consistent)
+pass_num = 0
+while True:
+    pass_num += 1
+    all_msg_ids = set()
 
-        messages = results.get("messages", [])
-        for msg in messages:
-            all_msg_ids.add(msg["id"])
+    for query in queries:
+        label = query["label"]
+        label_id = query["label_id"]
+        before_date = query["before"]
 
-        # Handle pagination
-        while "nextPageToken" in results:
+        if pass_num == 1:
+            print(f"  Searching: {label} ({label_id}) before {before_date}")
+
+        search_query = f"before:{before_date}"
+        try:
             results = service.users().messages().list(
                 userId="me",
+                labelIds=[label_id],
                 q=search_query,
-                maxResults=500,
-                pageToken=results["nextPageToken"]
+                maxResults=500
             ).execute()
+
             messages = results.get("messages", [])
             for msg in messages:
                 all_msg_ids.add(msg["id"])
 
-        print(f"    Found: {len(messages)} messages")
-    except Exception as e:
-        print(f"    Error searching: {e}")
+            while "nextPageToken" in results:
+                results = service.users().messages().list(
+                    userId="me",
+                    labelIds=[label_id],
+                    q=search_query,
+                    maxResults=500,
+                    pageToken=results["nextPageToken"]
+                ).execute()
+                messages = results.get("messages", [])
+                for msg in messages:
+                    all_msg_ids.add(msg["id"])
 
-print(f"\nTotal unique messages to trash: {len(all_msg_ids)}")
+        except Exception as e:
+            print(f"    Error searching: {e}")
 
-# Trash all messages
-trashed = 0
-failed = 0
-for msg_id in all_msg_ids:
-    try:
-        service.users().messages().trash(userId="me", id=msg_id).execute()
-        trashed += 1
-        if trashed % 50 == 0:
-            print(f"  Trashed {trashed}/{len(all_msg_ids)}...")
-    except Exception as e:
-        failed += 1
+    if not all_msg_ids:
+        break
 
-print(f"\nTRASHED={trashed}")
-print(f"FAILED={failed}")
+    action = "deleting" if can_delete else "trashing"
+    print(f"  Pass {pass_num}: found {len(all_msg_ids)} messages, {action}...")
+
+    for msg_id in all_msg_ids:
+        try:
+            if can_delete:
+                service.users().messages().delete(userId="me", id=msg_id).execute()
+            else:
+                service.users().messages().trash(userId="me", id=msg_id).execute()
+            total_trashed += 1
+            if total_trashed % 50 == 0:
+                print(f"    Processed {total_trashed} so far...")
+        except Exception as e:
+            total_failed += 1
+
+    # Brief pause for Gmail index to update
+    time.sleep(2)
+
+action = "DELETED" if can_delete else "TRASHED"
+print(f"\n{action}={total_trashed}")
+print(f"FAILED={total_failed}")
 PYEOF
 )
 
 echo "$result"
 
-# Parse counts
-trashed_count=$(echo "$result" | grep "^TRASHED=" | cut -d= -f2)
+# Parse counts (key is DELETED or TRASHED depending on scope)
+deleted_count=$(echo "$result" | grep -E "^(DELETED|TRASHED)=" | cut -d= -f2)
 failed_count=$(echo "$result" | grep "^FAILED=" | cut -d= -f2)
 
 echo ""
 echo "=== Summary ==="
-echo "Messages trashed: ${trashed_count:-0}"
+if [[ "$CAN_DELETE" == "true" ]]; then
+    echo "Messages permanently deleted: ${deleted_count:-0}"
+else
+    echo "Messages trashed: ${deleted_count:-0} (auto-deleted after 30 days)"
+fi
 if [[ "${failed_count:-0}" -gt 0 ]]; then
     echo "Messages failed: $failed_count"
 fi
 echo ""
-
-# --- Step 4: Empty trash if messages were trashed ---
-if [[ "${trashed_count:-0}" -gt 0 ]]; then
-    echo "[4/4] Emptying trash..."
-
-    trash_emptied=0
-    while true; do
-        # Get trash message IDs
-        ids=$(gog gmail messages search "in:trash" \
-            --account "$ACCOUNT" \
-            --max 500 \
-            --plain 2>&1 \
-            | tail -n +2 \
-            | grep -vE '^(#|No results)' \
-            | cut -f1 || true)
-
-        if [[ -z "$ids" ]]; then
-            break
-        fi
-
-        batch_count=0
-        batch_ids=()
-
-        while IFS= read -r id; do
-            [[ -z "$id" ]] && continue
-            batch_ids+=("$id")
-            batch_count=$((batch_count + 1))
-
-            if [[ ${#batch_ids[@]} -ge 100 ]]; then
-                gog gmail batch modify "${batch_ids[@]}" \
-                    --account "$ACCOUNT" \
-                    --remove="TRASH" \
-                    --force &>/dev/null
-                batch_ids=()
-            fi
-        done <<< "$ids"
-
-        if [[ ${#batch_ids[@]} -gt 0 ]]; then
-            gog gmail batch modify "${batch_ids[@]}" \
-                --account "$ACCOUNT" \
-                --remove="TRASH" \
-                --force &>/dev/null
-        fi
-
-        trash_emptied=$((trash_emptied + batch_count))
-
-        if [[ $batch_count -lt 500 ]]; then
-            break
-        fi
-    done
-
-    echo "Trash emptied: $trash_emptied messages permanently deleted"
-    echo ""
-fi
 
 echo "Done!"
