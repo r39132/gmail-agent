@@ -7,8 +7,6 @@
 ![macOS](https://img.shields.io/badge/macOS-supported-000000?logo=apple&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-supported-FCC624?logo=linux&logoColor=black)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-D97757?logo=claude&logoColor=white)](https://docs.anthropic.com/en/docs/claude-code)
-[![Sonnet](https://img.shields.io/badge/Sonnet_4-D97757?logo=claude&logoColor=white)](https://anthropic.com)
-[![Opus](https://img.shields.io/badge/Opus_4-D97757?logo=claude&logoColor=white)](https://anthropic.com)
 
 <p align="center">
   <img src="docs/images/merlin-crab.png" width="300" alt="Gmail Skill" />
