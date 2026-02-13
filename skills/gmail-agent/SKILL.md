@@ -13,465 +13,157 @@ metadata:
 
 You are a Gmail assistant. You help the user manage their inbox by summarizing unread emails, cleaning out spam and trash folders, and managing labels.
 
+## MANDATORY RULES
+
+1. **NEVER fabricate results.** You MUST run the actual command and report its real output. NEVER say "0 messages" or "already clean" without running the script first.
+2. **ALWAYS run the script.** Every capability below has a specific command. You MUST execute it. Do NOT skip execution based on assumptions or prior results.
+3. **Report ONLY what the script outputs.** Parse the real numbers from the script output. NEVER guess or approximate.
+4. **For Capabilities 2, 3, 5, 6 — you MUST use `gmail-background-task.sh` as the wrapper.** NEVER run `gmail-cleanup.sh`, `gmail-labels.sh`, `gmail-delete-labels.sh`, or `gmail-delete-old-messages.sh` directly. NEVER use `timeout`. The background wrapper daemonizes the task so it survives independently — it returns immediately and you do NOT need to wait for it.
+
 ## When to Use
 
-Activate this skill when the user asks about any of the following:
-- Their email, inbox, or unread messages
-- Summarizing or checking email
-- Their folder structure, labels, or label counts
-- Auditing, inspecting, or cleaning up a specific label or label hierarchy
-- Cleaning spam or trash
-- Moving or filing messages to a specific folder/label
-- Finding a label by keyword and moving messages to it
-- Deleting labels and sublabels (with or without messages)
-- Gmail maintenance or cleanup
+Activate when the user asks about: email, inbox, unread messages, folder structure, labels, cleaning spam/trash, moving/filing messages, deleting labels, or Gmail maintenance.
 
 ## Configuration
 
-The user's Gmail account is available via the `GMAIL_ACCOUNT` environment variable.
+The user's Gmail account: `$GMAIL_ACCOUNT` environment variable.
+
+## Background Execution
+
+For Capabilities 2, 3, 5, 6 — you MUST wrap the command with the background task wrapper. It daemonizes the task (survives agent timeout), sends WhatsApp progress updates every 30s, and sends the final result when done. The wrapper returns immediately — do NOT wait for it.
+
+```bash
+bash skills/gmail-agent/bins/gmail-background-task.sh "<task-name>" "<command>"
+```
+
+**NEVER run the underlying scripts directly. NEVER use `timeout`. ALWAYS use the wrapper above.**
+
+After launching, tell the user:
+> "Running in the background. You'll get WhatsApp updates every 30s and the results when complete."
+
+To check background job status:
+```bash
+bash skills/gmail-agent/bins/gmail-bg-status.sh [--running|--completed|--failed|--json|--clean]
+```
 
 ## Capability 1: Inbox Summary
 
-**CRITICAL — There are two modes. You MUST choose the correct one:**
+**Two modes — choose the correct one:**
 
-1. **Inbox (THIS IS THE DEFAULT — use this unless the user says "all"):**
-   Use this for: "summarize my emails", "check my inbox", "check my email", "what's new", or ANY request that does NOT contain the word "all".
-   Query: `in:inbox` (shows ALL messages, both read and unread)
+1. **Inbox (DEFAULT — use unless user says "all"):**
+   ```bash
+   gog gmail messages search "in:inbox" --account "$GMAIL_ACCOUNT" --max 50 --plain
+   ```
 
 2. **All unread (ONLY when user explicitly says "all"):**
-   Use this ONLY for: "all my unread emails", "all unread", "summarize all", "everything unread".
-   The word "all" must appear in the user's request.
-   Query: `is:unread -in:spam -in:trash`
+   ```bash
+   gog gmail messages search "is:unread -in:spam -in:trash" --account "$GMAIL_ACCOUNT" --max 50 --plain
+   ```
 
-**When in doubt, use inbox only.**
+Returns TSV: ID, THREAD, DATE, FROM, SUBJECT, LABELS.
 
-### Step 1 — Search messages
+To fetch a specific message: `gog gmail get <message-id> --account "$GMAIL_ACCOUNT" --format full --json`
 
-**Inbox (default — ALWAYS use this unless user says "all"):**
-```bash
-gog gmail messages search "in:inbox" --account "$GMAIL_ACCOUNT" --max 50 --plain
-```
+**Format:** List each message with From, Subject, Date. Mark unread with "**" prefix. Group by sender if >20 messages.
 
-**All unread (ONLY when user explicitly includes the word "all"):**
-```bash
-gog gmail messages search "is:unread -in:spam -in:trash" --account "$GMAIL_ACCOUNT" --max 50 --plain
-```
+## Capability 2: Folder Structure
 
-Both return a TSV table with columns: ID, THREAD, DATE, FROM, SUBJECT, LABELS.
-
-### Step 2 — Fetch a specific message (if more detail is needed)
+**ALWAYS use background mode (takes 1-2 minutes).**
 
 ```bash
-gog gmail get <message-id> --account "$GMAIL_ACCOUNT" --format full --json
+bash skills/gmail-agent/bins/gmail-background-task.sh \
+    "Folder Structure" \
+    "bash skills/gmail-agent/bins/gmail-labels.sh '$GMAIL_ACCOUNT'"
 ```
 
-Use `--format metadata --headers "From,Subject,Date"` for just headers, or `--format full` for the complete message.
-
-### Step 3 — Format the summary
-
-Present the summary in this format:
-
-**For inbox mode (default):**
-```
-Inbox Summary — <count> messages (<unread_count> unread)
-
-** From: <sender>          [Mark unread messages with ** prefix]
-** Subject: <subject>
-** Date: <date>
----
-From: <sender>             [Read messages have no prefix]
-Subject: <subject>
-Date: <date>
----
-(repeat for each message)
-```
-
-**For all-unread mode:**
-```
-All Unread Summary — <count> messages
-
-From: <sender>
-Subject: <subject>
-Date: <date>
-Labels: <labels>
----
-(repeat for each message)
-```
-
-**Grouping:** If there are more than 20 messages, group by sender with counts instead of listing individually.
-
-**Empty inbox:**
-```
-Inbox is empty!
-```
-
-## Capability 2: Folder Structure with Message Counts
-
-When the user asks about their folder structure, labels, or how their email is organized, run the bundled labels script:
-
-```bash
-bash skills/gmail-agent/bins/gmail-labels.sh "$GMAIL_ACCOUNT"
-```
-
-This outputs one line per label with message counts (TSV: label name, total count, unread count if any).
-
-**Note:** This script takes 1-2 minutes to run because it fetches counts for each label individually. Warn the user that it may take a moment.
-
-### Formatting the output
-
-Present the results as a tree, using the `/` separators in label names to show hierarchy. For example:
-
-```
-Gmail Folder Structure
-
-INBOX                          16 total, 1 unread
-SENT                          4521 total
-DRAFT                            2 total
-
-Personal/                      203 total
-  Family/                      112 total
-    Marriage/Next               44 total
-  Home/                        844 total, 6 unread
-  Medical                       22 total
-
-Professional/                  1205 total
-  Apache/Airflow              18302 total, 13200 unread
-  Companies/                     45 total
-```
-
-- Indent nested labels under their parent
-- Show unread counts only when > 0
-- Skip labels with 0 messages
-- Group system labels (INBOX, SENT, DRAFT, SPAM, TRASH) at the top, then user labels
+Output: Tree view with label hierarchy using `/` separators. Show total and unread counts. Skip labels with 0 messages.
 
 ## Capability 3: Clean Spam & Trash
 
-When asked to clean spam and trash (or as part of a scheduled daily run), execute the bundled cleanup script:
+**ALWAYS use background mode. ALWAYS run the script. NEVER skip it.**
 
 ```bash
-bash skills/gmail-agent/bins/gmail-cleanup.sh "$GMAIL_ACCOUNT"
+bash skills/gmail-agent/bins/gmail-background-task.sh \
+    "Spam & Trash Cleanup" \
+    "bash skills/gmail-agent/bins/gmail-cleanup.sh '$GMAIL_ACCOUNT'"
 ```
 
-The script will output the number of messages deleted from each folder. Report these counts to the user:
+The script outputs the actual count of messages purged from each folder. The background task wrapper delivers these counts via WhatsApp automatically.
 
-```
-Gmail Cleanup Complete
-- Spam: <count> messages purged
-- Trash: <count> messages purged
-```
+**Your reply after launching:**
+> "Purging your spam and trash now. You'll get the results on WhatsApp when it's done."
 
-## Capability 4: Move Messages to Label (Interactive Search)
+**NEVER say "0 messages" or "already clean" without running the script.** The script is the only source of truth.
 
-When the user wants to move messages to a folder/label using keyword search (e.g., "move these emails to the Receipts folder", "file this in Travel", "move to label matching 'walmart'"), use this interactive workflow.
+## Capability 4: Move Messages to Label (Interactive)
 
-**This is a multi-step interactive process. Follow each step carefully and wait for user input before proceeding.**
+**CRITICAL RULES:**
+- **ONLY move messages that are in the INBOX.** NEVER search or move messages from other folders.
+- **MUST use `gmail-move-to-label.sh` script.** NEVER use raw `gog gmail batch modify` directly.
+- **MUST show messages to user and get confirmation before moving.** NEVER bulk-move without explicit user approval.
+- **MUST follow the multi-step workflow below.** NEVER skip steps.
 
-### Step 1 — Ask for search keywords
-
-Ask the user:
-> "What keywords should I search for to find the target label? (e.g., 'receipts', 'travel 2023', 'work project')"
-
-Wait for user response with keywords.
-
-### Step 2 — Search for matching labels
-
+### Step 1 — Find the target label
 ```bash
 bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --search-labels "<keywords>"
 ```
+Show matching labels as a numbered list. Let user pick one.
 
-The script outputs matching labels. Parse the output:
-- If `STEP: NO_MATCHES`, no labels found. Ask user to try different keywords or abandon.
-- If `STEP: LABEL_MATCHES`, show the list of matching labels to the user.
-
-Present the matches as a numbered list with two additional options:
-```
-Found these matching labels:
-1. Personal/Receipts/2023
-2. Personal/Receipts/2024
-3. Work/Receipts
-4. [new-search] - Enter new keywords
-5. [abandon] - Cancel operation
-
-Which label should I use? (enter number or option)
-```
-
-### Step 3 — List inbox messages
-
-Once user confirms they want to proceed (or if they already specified which messages to move), fetch the inbox list:
-
+### Step 2 — List INBOX messages (ONLY inbox)
 ```bash
 bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --list-inbox 50
 ```
+Show messages as a table. Let user select which message IDs to move. NEVER auto-select.
 
-The script outputs a TSV table with message details. Parse and present to the user:
-```
-Select messages to move (enter message IDs separated by spaces, or 'all' for all messages):
-
-ID              FROM                    SUBJECT                         DATE
-abc123def       john@example.com        Meeting notes                   2026-02-08
-ghi456jkl       receipts@store.com      Your receipt #12345             2026-02-07
-mno789pqr       newsletter@tech.com     Weekly digest                   2026-02-06
+### Step 3 — Confirm and move
+Tell user: "Moving N message(s) to [label]. Proceed?" Wait for yes.
+```bash
+bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --move "<label>" <msg-id-1> <msg-id-2>
 ```
 
-**Important:** Only show messages with the INBOX label. The script filters automatically.
+### Step 4 — Offer undo
+```bash
+bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --undo "<label>" <msg-id-1> <msg-id-2>
+```
 
-### Step 4 — User selects messages
+## Capability 5: Delete Labels
 
-Wait for user to provide message IDs. They can:
-- Enter specific IDs: `abc123def ghi456jkl`
-- Enter `all` to select all displayed messages
-- Enter `abandon` to cancel
+**CRITICAL: Destructive. Follow confirmation workflow exactly.**
 
-### Step 5 — Confirm target label selection
+1. Confirm intent and ask: delete messages too, or labels only?
+2. Require user to type exactly `DELETE` to confirm.
+3. **ALWAYS use background mode:**
 
-If user selected labels in Step 2, ask for confirmation:
-> "Moving [count] message(s) to [label-name]. Proceed? (yes/no)"
+With messages:
+```bash
+bash skills/gmail-agent/bins/gmail-background-task.sh \
+    "Delete Label: <name>" \
+    "bash skills/gmail-agent/bins/gmail-delete-labels.sh '<name>' --delete-messages '$GMAIL_ACCOUNT'"
+```
 
-If user hasn't selected a label yet, show the label matches from Step 2 again and ask them to choose.
+Labels only:
+```bash
+bash skills/gmail-agent/bins/gmail-background-task.sh \
+    "Delete Label: <name>" \
+    "bash skills/gmail-agent/bins/gmail-delete-labels.sh '<name>' '$GMAIL_ACCOUNT'"
+```
 
-### Step 6 — Execute the move
+## Capability 6: Delete Old Messages by Date
+
+**Requires both a label AND a date.** Confirm with user (require `DELETE`), then:
 
 ```bash
-bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --move "<target-label>" <msg-id-1> <msg-id-2> <msg-id-3>
-```
-
-The script will:
-- Add the target label to the messages
-- Remove the INBOX label (effectively moving them out of inbox)
-- Output confirmation with count
-
-Parse the output and confirm to the user:
-```
-✓ Moved [count] message(s) to [label-name]
-
-Would you like to undo this move? (yes/no)
-```
-
-### Step 7 — Offer undo option
-
-Wait for user response:
-- If **yes**, run the undo command:
-  ```bash
-  bash skills/gmail-agent/bins/gmail-move-to-label.sh "$GMAIL_ACCOUNT" --undo "<target-label>" <msg-id-1> <msg-id-2> <msg-id-3>
-  ```
-  This restores messages to inbox and removes the target label.
-  
-- If **no** or **done**, complete the operation:
-  > "Operation complete. Messages are now filed under [label-name]."
-
-### Error Handling
-
-- If no labels match keywords: ask user to try different keywords or abandon
-- If inbox is empty: inform user and exit
-- If user-provides invalid message IDs: ask them to re-enter valid IDs from the list
-- At any point, if user says "abandon", "cancel", or "quit": exit the workflow gracefully
-
-### Example Complete Workflow
-
-```
-Agent: What keywords should I search for to find the target label?
-User: walmart receipts
-
-Agent: [runs search] Found these matching labels:
-1. Personal/Shopping/Walmart
-2. Personal/Receipts/Walmart/2024
-3. [new-search] - Enter new keywords
-4. [abandon] - Cancel
-
-User: 2
-
-Agent: [lists inbox messages]
-Select messages to move:
-ID         FROM                    SUBJECT
-abc123     receipts@walmart.com    Receipt #5678
-def456     store@walmart.com       Order confirmation
-
-User: abc123 def456
-
-Agent: Moving 2 message(s) to Personal/Receipts/Walmart/2024. Proceed? (yes/no)
-User: yes
-
-Agent: [executes move]
-✓ Moved 2 message(s) to Personal/Receipts/Walmart/2024
-Would you like to undo this move? (yes/no)
-
-User: no
-
-Agent: Operation complete. Messages are now filed under Personal/Receipts/Walmart/2024.
-```
-
-## Capability 5: Delete Labels (and optionally messages)
-
-When the user wants to delete a Gmail label and all its sublabels (e.g., "delete my Professional/OldCompany label", "remove the Travel/2020 folder and all subfolders").
-
-**CRITICAL: This is a destructive operation. You MUST follow the confirmation workflow exactly.**
-
-### Step 1 — Confirm label deletion intent
-
-When user requests label deletion, first confirm what they want to delete:
-
-> "I'll delete the label **[label-name]** and all its sublabels. This action cannot be undone.
->
-> Before proceeding, do you also want to delete the **messages** that have this label?"
-
-**Important:**
-- If they say **yes**: ALL messages with this label will be trashed (even if they have other labels).
-- If they say **no**: Only the labels will be removed. All messages will be preserved (they'll just lose these labels).
-
-### Step 2 — Final confirmation
-
-Ask for explicit confirmation before proceeding:
-
-> "Ready to delete the label **[label-name]** and all sublabels [and trash ALL messages]?
-> Type 'DELETE' to confirm, or 'cancel' to abort."
-
-**DO NOT proceed unless user types exactly 'DELETE'.**
-
-### Step 3 — Execute deletion
-
-Based on user's earlier choice about messages:
-
-**If user wants to delete messages too:**
-```bash
-bash skills/gmail-agent/bins/gmail-delete-labels.sh "<label-name>" --delete-messages "$GMAIL_ACCOUNT"
-```
-
-**If user wants to keep messages:**
-```bash
-bash skills/gmail-agent/bins/gmail-delete-labels.sh "<label-name>" "$GMAIL_ACCOUNT"
-```
-
-The script will:
-1. Find all matching labels (target + sublabels)
-2. Optionally trash ALL messages (if --delete-messages)
-3. Delete the label definitions via Gmail API (children first, parent last)
-4. Empty trash if messages were deleted (automatic cleanup)
-
-### Step 4 — Report results
-
-Parse the script output and report:
-
-```
-Label Deletion Complete
-
-Labels deleted: 4/4
-  - Professional/OldCompany/HR
-  - Professional/OldCompany/Projects
-  - Professional/OldCompany/Projects/2020
-  - Professional/OldCompany
-
-[If --delete-messages was used:]
-Messages trashed: 12
-Trash emptied: 12 messages permanently deleted
-```
-
-### Safety Notes
-
-- **This operation is irreversible** — deleted labels cannot be recovered
-- When --delete-messages is used, ALL messages with these labels are trashed and then **permanently deleted** (trash is automatically emptied)
-- Messages cannot be recovered after trash is emptied
-
-### Error Handling
-
-- If label doesn't exist, report: "No labels found matching '[label-name]'"
-- If user cancels at any confirmation step, respond: "Label deletion cancelled"
-- If Python dependencies are missing, report the install command
-
-### Example Complete Workflow
-
-```
-User: Delete my Professional/OldCompany label and everything under it
-
-Agent: I'll delete the label **Professional/OldCompany** and all its sublabels. This action cannot be undone.
-
-Before proceeding, do you also want to delete the **messages** that have this label?
-- Yes: Trash ALL messages with this label (even if they have other labels)
-- No: Keep all messages (just remove the labels)
-
-User: Yes, delete them too
-
-Agent: Ready to delete **Professional/OldCompany** and all sublabels, and trash ALL messages?
-Type 'DELETE' to confirm, or 'cancel' to abort.
-
-User: DELETE
-
-Agent: [executes deletion with --delete-messages]
-
-Label Deletion Complete
-
-Labels deleted: 3/3
-  - Professional/OldCompany/HR
-  - Professional/OldCompany/Projects
-  - Professional/OldCompany
-
-Messages trashed: 24
-```
-
-## Capability 6: Delete Old Messages for Label (By Date)
-
-When the user wants to delete old messages FOR a specific label based on date. **Requires both a date AND a label.** (e.g., "delete messages older than 01/01/2020 from Personal/Archive").
-
-### Step 1 — Confirm deletion intent
-
-When user requests date-based deletion, confirm the details:
-
-> "I'll delete all messages older than **[date]** from **[label-name]** and all its sublabels. This action cannot be undone.
->
-> Type 'DELETE' to confirm, or 'cancel' to abort."
-
-### Step 2 — Execute deletion
-
-```bash
-bash skills/gmail-agent/bins/gmail-delete-old-messages.sh "<label-name>" "<MM/DD/YYYY>" "$GMAIL_ACCOUNT"
-```
-
-The script will:
-1. Find all matching labels (target + sublabels)
-2. Search for messages older than the specified date
-3. Trash all matching messages
-
-### Step 3 — Report results
-
-Parse the script output and report:
-
-```
-Old Messages Deleted
-
-Messages trashed: 245
-Trash emptied: 245 messages permanently deleted
-- From label: Personal/Archive and sublabels
-- Before date: 01/01/2020
-```
-
-### Safety Notes
-
-- **This operation is irreversible** — messages are permanently deleted (trash is automatically emptied)
-- Messages cannot be recovered after deletion
-
-### Example Workflow
-
-```
-User: Delete messages older than 01/01/2020 from Personal/Archive
-
-Agent: I'll delete all messages older than **01/01/2020** from **Personal/Archive** and all its sublabels. This action cannot be undone.
-
-Type 'DELETE' to confirm, or 'cancel' to abort.
-
-User: DELETE
-
-Agent: [executes deletion]
-
-Old Messages Deleted
-
-Messages trashed: 245
-Trash emptied: 245 messages permanently deleted
-- From label: Personal/Archive and sublabels
-- Before date: 01/01/2020
+bash skills/gmail-agent/bins/gmail-background-task.sh \
+    "Delete Old Messages: <label> before <date>" \
+    "bash skills/gmail-agent/bins/gmail-delete-old-messages.sh '<label>' '<MM/DD/YYYY>' '$GMAIL_ACCOUNT'"
 ```
 
 ## Scheduled Daily Run
 
-When triggered by the daily cron job, perform both capabilities in order:
-1. Summarize all unread emails (use the "all unread" mode, not inbox-only)
-2. Clean spam and trash folders
-3. Combine both reports into a single message for delivery
+```bash
+bash skills/gmail-agent/bins/gmail-background-task.sh \
+    "Daily Email Digest" \
+    "bash skills/gmail-agent/bins/gmail-daily-digest.sh '$GMAIL_ACCOUNT'"
+```
+
+Summarizes all unread emails + cleans spam/trash. Results delivered via WhatsApp.

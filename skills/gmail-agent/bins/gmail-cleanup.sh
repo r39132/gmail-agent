@@ -46,7 +46,7 @@ cleanup_label() {
         while IFS= read -r id; do
             [[ -z "$id" ]] && continue
             batch_ids+=("$id")
-            ((batch_count++))
+            batch_count=$((batch_count + 1))
 
             # Batch modify in groups of 100 (Gmail API limit per batch)
             if [[ ${#batch_ids[@]} -ge 100 ]]; then
@@ -81,10 +81,8 @@ echo "Cleaning Gmail for $ACCOUNT..."
 echo ""
 
 spam_count=$(cleanup_label "spam")
-echo "Spam: ${spam_count} messages cleaned"
-
 trash_count=$(cleanup_label "trash")
-echo "Trash: ${trash_count} messages cleaned"
 
-echo ""
-echo "Done."
+echo "Spam: ${spam_count} messages purged"
+echo "Trash: ${trash_count} messages purged"
+echo "Total: $((spam_count + trash_count)) messages purged"

@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+#
+# gmail-bg — Convenience wrapper for running Gmail tasks in background
+#
+# Usage: gmail-bg <task-name> <command> [args...]
+#
+# This script automatically:
+# - Sources the .env file
+# - Exports required environment variables
+# - Calls gmail-background-task.sh
+#
+set -euo pipefail
+
+# Get script directory and project root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# From bins/ -> skills/gmail-agent/ -> skills/ -> gmail-agent/
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
+# Source .env if it exists
+if [[ -f "$PROJECT_ROOT/.env" ]]; then
+    source "$PROJECT_ROOT/.env"
+    export GMAIL_ACCOUNT WHATSAPP_NOTIFY_TARGET WHATSAPP_UPDATE_INTERVAL
+else
+    echo "Warning: $PROJECT_ROOT/.env not found" >&2
+    echo "Creating from .env.example..." >&2
+    if [[ -f "$PROJECT_ROOT/.env.example" ]]; then
+        cp "$PROJECT_ROOT/.env.example" "$PROJECT_ROOT/.env"
+        echo "Please edit $PROJECT_ROOT/.env with your settings" >&2
+        exit 1
+    fi
+fi
+
+# Forward to background task runner
+exec bash "$SCRIPT_DIR/gmail-background-task.sh" "$@"

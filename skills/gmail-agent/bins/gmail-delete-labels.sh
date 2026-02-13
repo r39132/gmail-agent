@@ -135,27 +135,50 @@ if [[ "$DELETE_MESSAGES" == true ]]; then
         messages=$(gog gmail messages search "label:\"${lbl}\"" \
             --account "$ACCOUNT" \
             --max 500 \
-            --json 2>/dev/null || echo "[]")
-
-        if [[ "$messages" == "[]" ]] || [[ -z "$messages" ]]; then
-            echo "    No messages found"
+            --json 2>/dev/null || echo "{\"messages\":null}" || true) || {
+            echo "    ERROR: Failed to fetch messages for label: ${lbl}" >&2
             continue
+        }
+
+        if [[ -z "$messages" ]]; then
+            messages="{\"messages\":null}"
         fi
 
-        count=0
-        while IFS= read -r msg_id; do
-            [[ -z "$msg_id" ]] && continue
+        # Extract message IDs safely - handle the case where messages is null
+        msg_ids_file=$(mktemp)
+        echo "$messages" | jq -r '.messages[]? | .id' 2>/dev/null > "$msg_ids_file" || true
 
-            gog gmail trash "$msg_id" --account "$ACCOUNT" &>/dev/null
-            ((count++))
-            ((total_deleted++))
-        done < <(echo "$messages" | jq -r '.[].id' 2>/dev/null)
-
-        if [[ $count -gt 0 ]]; then
+        count=$(grep -c . "$msg_ids_file" 2>/dev/null || true)
+        count=${count:-0}
+        if [[ "$count" -gt 0 ]]; then
+            # Batch move messages to trash in groups of 100
+            batch_ids=()
+            while IFS= read -r msg_id; do
+                [[ -z "$msg_id" ]] && continue
+                batch_ids+=("$msg_id")
+                
+                if [[ ${#batch_ids[@]} -ge 100 ]]; then
+                    gog gmail batch modify "${batch_ids[@]}" \
+                        --account "$ACCOUNT" \
+                        --add="TRASH" 2>/dev/null || true
+                    batch_ids=()
+                fi
+                total_deleted=$((total_deleted + 1))
+            done < "$msg_ids_file"
+            
+            # Process remaining messages
+            if [[ ${#batch_ids[@]} -gt 0 ]]; then
+                gog gmail batch modify "${batch_ids[@]}" \
+                    --account "$ACCOUNT" \
+                    --add="TRASH" 2>/dev/null || true
+            fi
+            
             echo "    Trashed $count message(s)"
         else
             echo "    No messages to trash"
         fi
+        
+        rm -f "$msg_ids_file"
     done
 
     echo ""
@@ -170,10 +193,11 @@ fi
 echo "[3/4] Deleting labels via Gmail API..."
 
 # Export gog token temporarily
-TOKEN_FILE=$(mktemp /tmp/gog_token_XXXXXX.json)
+TOKEN_FILE=$(mktemp)
+rm "$TOKEN_FILE"  # gog auth tokens export needs the file to NOT exist
 trap "rm -f '$TOKEN_FILE'" EXIT
 
-gog auth tokens export "$ACCOUNT" --out "$TOKEN_FILE" 2>/dev/null
+gog auth tokens export "$ACCOUNT" --out "$TOKEN_FILE" 2>/dev/null || true
 
 # Read gog client credentials
 GOG_CREDS_DIR="${HOME}/Library/Application Support/gogcli"
@@ -289,7 +313,7 @@ if [[ "$DELETE_MESSAGES" == true ]] && [[ $total_deleted -gt 0 ]]; then
         while IFS= read -r id; do
             [[ -z "$id" ]] && continue
             batch_ids+=("$id")
-            ((batch_count++))
+            batch_count=$((batch_count + 1))
 
             if [[ ${#batch_ids[@]} -ge 100 ]]; then
                 gog gmail batch modify "${batch_ids[@]}" \

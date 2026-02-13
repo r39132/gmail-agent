@@ -283,7 +283,7 @@ if [[ "${trashed_count:-0}" -gt 0 ]]; then
         while IFS= read -r id; do
             [[ -z "$id" ]] && continue
             batch_ids+=("$id")
-            ((batch_count++))
+            batch_count=$((batch_count + 1))
 
             if [[ ${#batch_ids[@]} -ge 100 ]]; then
                 gog gmail batch modify "${batch_ids[@]}" \

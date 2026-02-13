@@ -62,7 +62,83 @@ The screenshot shows a WhatsApp conversation where I'm messaging myself. **Mr. K
 | **Move to label** | Search labels by keyword and move messages from inbox interactively. |
 | **Delete labels** | Delete a label and all sublabels with optional deletion of ALL messages. Automatically empties trash. |
 | **Delete old messages for label** | Delete old messages (by date) FOR a specific label and its sublabels. Automatically empties trash. |
+| **Background execution** | Run any task in background with WhatsApp progress updates every 30s and completion notifications. |
+| **Job status tracking** | Monitor all running/completed background jobs with duration and logs. |
 | **Daily digest** | Scheduled cron job: summarize + purge, delivered to WhatsApp (via OpenClaw). |
+
+---
+
+## Background Execution
+
+All tasks can run in the background with WhatsApp progress updates:
+
+```bash
+# Set your WhatsApp number for notifications
+export WHATSAPP_NOTIFY_TARGET="+15555550123"
+
+# Run any task in background
+bash skills/gmail-agent/bins/gmail-background-task.sh \
+    "Spam & Trash Cleanup" \
+    "bash skills/gmail-agent/bins/gmail-cleanup.sh '$GMAIL_ACCOUNT'"
+```
+
+**What happens:**
+- Task runs in background immediately
+- WhatsApp notification every 30s with elapsed time
+- Final WhatsApp notification with complete results
+- All output logged to `/tmp/gmail-bg-*.log`
+
+**Check status of all background jobs:**
+```bash
+bash skills/gmail-agent/bins/gmail-bg-status.sh
+
+# Options
+bash skills/gmail-agent/bins/gmail-bg-status.sh --running   # Only running
+bash skills/gmail-agent/bins/gmail-bg-status.sh --completed # Only completed
+bash skills/gmail-agent/bins/gmail-bg-status.sh --json      # JSON output
+bash skills/gmail-agent/bins/gmail-bg-status.sh --clean     # Remove old jobs
+```
+
+**When to use background mode:**
+- Long-running tasks (folder structure, large cleanups)
+- Scheduled/automated runs (daily digest)
+- When you don't need to wait for completion
+
+**WhatsApp notification examples:**
+
+Initial:
+```
+📧 Gmail Agent: Starting task 'Spam & Trash Cleanup'
+Account: you@gmail.com
+Started: 2026-02-11 14:30:00
+Running in background... Updates every 30s
+```
+
+Progress (every 30s):
+```
+⏳ Gmail Agent: Task 'Spam & Trash Cleanup' still running...
+Duration: 1m 30s
+Updates: 3
+Task is progressing in background.
+```
+
+Completion:
+```
+✅ Gmail Agent: Task 'Spam & Trash Cleanup' completed successfully
+Duration: 2m 45s
+Account: you@gmail.com
+Completed: 2026-02-11 14:32:45
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Output:
+━━━━━━━━━━━━━━━━━━━━━━━━━━
+Cleaning Gmail for you@gmail.com...
+Spam: 124 messages cleaned
+Trash: 89 messages cleaned
+Done.
+
+Log: /tmp/gmail-bg-20260211-143000.log
+```
 
 ---
 
@@ -369,7 +445,10 @@ gmail-agent/
 │   └── gmail-agent/
 │       ├── SKILL.md                   # Agent skill definition (OpenClaw + general)
 │       └── bins/
-│           ├── gmail-cleanup.sh       # Spam & trash purge script
+│           ├── gmail-background-task.sh    # Background task runner with WhatsApp notifications
+│           ├── gmail-bg-status.sh          # Status viewer for all background jobs
+│           ├── gmail-cleanup.sh            # Spam & trash purge script
+│           ├── gmail-daily-digest.sh       # Combined unread summary + cleanup for daily cron
 │           ├── gmail-delete-labels.sh      # Delete labels (and optionally messages) via Gmail API
 │           ├── gmail-delete-old-messages.sh # Delete messages older than date from label
 │           ├── gmail-labels.sh             # Label tree with message counts
@@ -390,6 +469,8 @@ gmail-agent/
 | Variable | Required | Description |
 |---|---|---|
 | `GMAIL_ACCOUNT` | Yes | Gmail address to manage |
+| `WHATSAPP_NOTIFY_TARGET` | No | WhatsApp number for background task notifications (E.164 format, e.g., `+15555550123`) |
+| `WHATSAPP_UPDATE_INTERVAL` | No | Seconds between status updates for background tasks (default: `30`) |
 | `CRON_TIMEZONE` | No | Timezone for scheduled runs (default: `America/Los_Angeles`) |
 | `CRON_SCHEDULE` | No | Cron expression (default: `0 12 * * *` = noon daily) |
 
