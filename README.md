@@ -2,7 +2,7 @@
 [![Bash 4+](https://img.shields.io/badge/Bash-4%2B-4EAA25?logo=gnubash&logoColor=white)](#)
 [![gog CLI](https://img.shields.io/badge/gog-v0.9-4285F4?logo=google&logoColor=white)](https://github.com/nicholasgasior/gog)
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-Skill-FF6B35?logo=lobster&logoColor=white)](https://openclaw.ai)
-[![ClawHub](https://img.shields.io/badge/ClawHub-v1.1.0-8B5CF6?logo=npm&logoColor=white)](https://clawhub.ai/r39132/gmail-skill)
+[![ClawHub](https://img.shields.io/badge/ClawHub-v1.2.0-8B5CF6?logo=npm&logoColor=white)](https://clawhub.ai/r39132/gmail-skill)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 ![macOS](https://img.shields.io/badge/macOS-supported-000000?logo=apple&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-supported-FCC624?logo=linux&logoColor=black)
